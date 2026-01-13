@@ -1,0 +1,19 @@
+# 依赖
+node_modules/
+
+# 环境变量（包含API密钥）
+.env
+.env.local
+.env.*.local
+
+# 日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 测试文件
+test-*.js
+
+# 其他
+.DS_Store
+*.log
