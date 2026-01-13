@@ -3,6 +3,7 @@ const router = express.Router();
 const dataService = require('../services/dataService');
 const searchService = require('../services/searchService');
 const stockService = require('../services/stockService');
+const authMiddleware = require('../middleware/auth');
 
 // 启动日志 - 验证代码已更新
 console.log('=== concepts.js v4 loaded ===');
@@ -53,10 +54,10 @@ router.get('/:id', async (req, res) => {
 
 /**
  * POST /api/concepts
- * 创建新概念并搜索成分股
+ * 创建新概念并搜索成分股（需要认证）
  * Body: { name: string }
  */
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const { name } = req.body;
 
@@ -153,9 +154,9 @@ router.get('/:id/stocks', async (req, res) => {
 
 /**
  * DELETE /api/concepts/:id
- * 删除概念
+ * 删除概念（需要认证）
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     await dataService.deleteConcept(req.params.id);
     res.json({
@@ -172,9 +173,9 @@ router.delete('/:id', async (req, res) => {
 
 /**
  * PUT /api/concepts/:id
- * 更新概念（重新搜索成分股）
+ * 更新概念（重新搜索成分股，需要认证）
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { name } = req.body;
 
