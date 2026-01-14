@@ -107,7 +107,95 @@
       from { opacity: 0; transform: translateY(-10px); }
       to { opacity: 1; transform: translateY(0); }
     }
+
+    /* 图表悬浮弹窗样式 */
+    .chart-popup {
+      position: fixed;
+      background: rgba(31, 41, 55, 0.98);
+      border: 1px solid #4b5563;
+      border-radius: 8px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      pointer-events: auto;
+    }
+
+    .chart-popup-content {
+      padding: 16px;
+      min-width: 320px;
+      max-width: 400px;
+    }
+
+    .chart-popup-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .chart-popup-header h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .chart-close {
+      background: none;
+      border: none;
+      color: #9ca3af;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .chart-close:hover {
+      color: #fff;
+    }
+
+    .chart-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .chart-tab {
+      background: #374151;
+      border: none;
+      color: #9ca3af;
+      padding: 6px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    .chart-tab.active {
+      background: #3b82f6;
+      color: #fff;
+    }
+
+    .chart-tab:hover {
+      background: #4b5563;
+    }
+
+    .chart-loading {
+      text-align: center;
+      padding: 40px;
+      color: #9ca3af;
+    }
+
+    /* 移动端适配 */
+    @media (max-width: 768px) {
+      .chart-popup-content {
+        min-width: 280px;
+      }
+
+      #stockChart {
+        height: 250px !important;
+      }
+    }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen">
   <div class="container mx-auto px-4 py-8 max-w-full">
@@ -166,6 +254,22 @@
       </svg>
       <p class="text-gray-400 text-lg">还没有添加任何概念</p>
       <p class="text-gray-500">在上方输入概念名称开始使用</p>
+    </div>
+  </div>
+
+  <!-- 股票图表悬浮弹窗 -->
+  <div id="chartPopup" class="chart-popup" style="display: none;" onmouseenter="cancelHideTimer()" onmouseleave="scheduleHide()">
+    <div class="chart-popup-content">
+      <div class="chart-popup-header">
+        <h3 id="chartTitle">股票名称</h3>
+        <button onclick="closeChart()" class="chart-close">&times;</button>
+      </div>
+      <div class="chart-tabs">
+        <button class="chart-tab active" data-type="minute" onclick="switchChartType('minute', event)">分时</button>
+        <button class="chart-tab" data-type="daily" onclick="switchChartType('daily', event)">日K</button>
+      </div>
+      <div id="stockChart" style="width: 100%; height: 300px;"></div>
+      <div id="chartLoading" class="chart-loading">加载中...</div>
     </div>
   </div>
 

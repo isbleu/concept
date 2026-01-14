@@ -14,6 +14,7 @@ app.use(express.json());
 
 // API路由
 app.use('/api/concepts', require('./routes/concepts'));
+app.use('/api/charts', require('./routes/charts'));
 
 // 健康检查
 app.get('/api/health', (req, res) => {

@@ -17,4 +17,6 @@ test-*.js
 # 其他
 .DS_Store
 *.log
+nul
 tmpclaude-*/
+src/routes/tmpclaude-*/
