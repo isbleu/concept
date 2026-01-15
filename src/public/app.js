@@ -1,8 +1,13 @@
 // API基础URL
 const API_BASE = '/api';
 
+// Safari兼容性辅助函数
+function padZero(num) {
+  return num < 10 ? '0' + num : num.toString();
+}
+
 // 版本标识 - 用于确认代码已更新
-console.log('=== app.js v10 loaded ===');
+console.log('=== app.js v11 loaded ===');
 
 // 状态管理
 let concepts = [];
@@ -115,7 +120,7 @@ function updateConceptQuotes(conceptId, data, forceRebuild = false) {
 
   // 获取原始概念数据（包含 reason 字段）
   const concept = concepts.find(c => c.id === conceptId);
-  const originalStocks = concept?.stocks || [];
+  const originalStocks = concept && concept.stocks ? concept.stocks : [];
 
   if (data.quotes.length === 0) {
     stocksContainer.innerHTML = `
@@ -131,7 +136,7 @@ function updateConceptQuotes(conceptId, data, forceRebuild = false) {
     const originalStock = originalStocks.find(s => s.code === quote.code);
     return {
       ...quote,
-      reason: originalStock?.reason || ''
+      reason: originalStock && originalStock.reason ? originalStock.reason : ''
     };
   });
 
@@ -152,7 +157,10 @@ function updateConceptQuotes(conceptId, data, forceRebuild = false) {
   // 检查是否需要完全重建（首次加载 或 现有数据是占位符 或 强制重建）
   const needsRebuild = forceRebuild || isFirstLoad || (
     existingStockItems.length > 0 &&
-    !existingStockItems[0].querySelector('[data-field="price"]')?.textContent.includes('.')
+    (function() {
+      const priceEl = existingStockItems[0].querySelector('[data-field="price"]');
+      return !priceEl || !priceEl.textContent.includes('.');
+    })()
   );
 
   if (needsRebuild) {
@@ -698,10 +706,10 @@ function getMinuteChartOption(data) {
   const endTime = 15 * 60; // 15:00
 
   for (let t = startTime; t <= morningEnd; t += 30) {
-    fullDayTimes.push(`${Math.floor(t / 60).toString().padStart(2, '0')}:${(t % 60).toString().padStart(2, '0')}`);
+    fullDayTimes.push(`${padZero(Math.floor(t / 60))}:${padZero(t % 60)}`);
   }
   for (let t = afternoonStart; t <= endTime; t += 30) {
-    fullDayTimes.push(`${Math.floor(t / 60).toString().padStart(2, '0')}:${(t % 60).toString().padStart(2, '0')}`);
+    fullDayTimes.push(`${padZero(Math.floor(t / 60))}:${padZero(t % 60)}`);
   }
 
   // 构建分段数据用于颜色渲染
@@ -1148,7 +1156,7 @@ function renderConcepts() {
             <span class="ml-2 text-sm concept-change" data-concept-id="${concept.id}">${changeText}</span>
           </h2>
           <p class="text-xs text-gray-400">
-            成分股: ${concept.stocks?.length || 0} 只
+            成分股: ${concept.stocks ? concept.stocks.length : 0} 只
             <span class="mx-1">|</span>
             更新: <span class="update-time">-</span>
           </p>
