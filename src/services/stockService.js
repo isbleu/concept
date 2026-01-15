@@ -6,10 +6,10 @@ const axios = require('axios');
  */
 class StockService {
   constructor() {
-    // 多个数据源
+    // 多个数据源（腾讯API优先，对停牌股票处理更准确）
     this.sources = [
-      { name: 'sina', baseUrl: 'http://hq.sinajs.cn', format: 'sina' },
-      { name: 'tencent', baseUrl: 'http://qt.gtimg.cn', format: 'tencent' }
+      { name: 'tencent', baseUrl: 'http://qt.gtimg.cn', format: 'tencent' },
+      { name: 'sina', baseUrl: 'http://hq.sinajs.cn', format: 'sina' }
     ];
     this.currentSource = 0;
   }
@@ -56,22 +56,42 @@ class StockService {
    * @returns {Promise<Object>} 股票行情数据
    */
   async getStockQuote(code, market) {
-    try {
-      const formattedCode = this._formatStockCode(code, market);
-      const url = `${this.baseUrl}/list=${formattedCode}`;
+    // 尝试多个数据源
+    for (let attempt = 0; attempt < this.sources.length; attempt++) {
+      const source = this._getSource();
 
-      const response = await axios.get(url, {
-        timeout: 5000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      try {
+        const formattedCode = this._formatStockCode(code, market);
+        const url = `${source.baseUrl}/list=${formattedCode}`;
+
+        const response = await axios.get(url, {
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': '*/*',
+            'Accept-Language': 'zh-CN,zh;q=0.9'
+          }
+        });
+
+        // 根据数据源格式解析
+        if (source.format === 'sina') {
+          return this._parseSinaResponse(response.data, code);
+        } else if (source.format === 'tencent') {
+          return this._parseTencentResponse(response.data, code);
         }
-      });
-
-      return this._parseSinaResponse(response.data, code);
-    } catch (error) {
-      console.error(`获取股票 ${code} 行情失败:`, error.message);
-      return this._getErrorQuote(code);
+      } catch (error) {
+        console.error(`${source.name} 获取股票 ${code} 失败:`, error.message);
+        if (error.response?.status === 403) {
+          console.log('遇到 403 限流，切换数据源...');
+        }
+        this._switchSource();
+        await this._delay(500);
+      }
     }
+
+    // 所有数据源都失败
+    console.warn(`所有数据源均失败，股票 ${code} 返回占位数据`);
+    return this._getErrorQuote(code);
   }
 
   /**
@@ -113,6 +133,12 @@ class StockService {
   async _fetchFromSource(stocks, source) {
     const codes = stocks.map(s => this._formatStockCode(s.code, s.market));
     let url, response;
+
+    // 检查是否包含铖昌科技
+    const has001270 = stocks.some(s => s.code === '001270');
+    if (has001270) {
+      console.log('[铖昌科技] 使用数据源:', source.name, '格式:', source.format);
+    }
 
     if (source.format === 'sina') {
       // 新浪财经
@@ -162,6 +188,16 @@ class StockService {
 
       const fields = match[1].split('~');
       // 腾讯格式: 代码,名称,当前价,昨收,开盘,最高,最低,买一,卖一,...
+
+      // 调试：打印铖昌科技的原始数据
+      if (code === '001270') {
+        console.log('[铖昌科技] 腾讯API原始数据:');
+        console.log('  fields[3]:', fields[3]);
+        console.log('  fields[4]:', fields[4]);
+        console.log('  fields[5]:', fields[5]);
+        console.log('  fields[42]:', fields[42]);
+      }
+
       const stockName = name || fields[1] || '';
       const price = parseFloat(fields[3]) || 0;
       const preClose = parseFloat(fields[4]) || 0;
@@ -169,11 +205,22 @@ class StockService {
       const high = parseFloat(fields[33]) || 0;
       const low = parseFloat(fields[34]) || 0;
       const volume = parseInt(fields[36]) || 0;
+      const amount = parseFloat(fields[37]) || 0;  // 成交额（万元）
       const date = fields[30] || '';
       const time = fields[31] || '';
 
       const change = price - preClose;
       const changePercent = preClose > 0 ? ((change / preClose) * 100) : 0;
+
+      // 调试：打印铖昌科技的解析结果
+      if (code === '001270') {
+        console.log('[铖昌科技] 解析后的数据:');
+        console.log('  price:', price);
+        console.log('  preClose:', preClose);
+        console.log('  open:', open);
+        console.log('  change:', change);
+        console.log('  changePercent:', changePercent);
+      }
 
       return {
         code,
@@ -186,7 +233,7 @@ class StockService {
         change: parseFloat(change.toFixed(2)),
         changePercent: parseFloat(changePercent.toFixed(2)),
         volume: volume * 100,
-        amount: 0,
+        amount: amount * 10000,  // 万元转元
         updateTime: date && time ? `${date} ${time}` : '',
         status: price === 0 ? 'stopped' : 'normal'
       };
@@ -220,6 +267,18 @@ class StockService {
       // 0:名称 1:开盘 2:昨收 3:当前价 4:最高 5:最低 6:买一 7:卖一
       // 8:成交量(手) 9:成交额(万) 10:买一量 11:买一价 12:买二量 13:买二价 ...
       // 30:日期 31:时间
+
+      // 调试：打印铖昌科技的原始数据
+      if (code === '001270') {
+        console.log('[铖昌科技] 新浪API原始数据:');
+        console.log('  fields[0]:', fields[0], '(名称)');
+        console.log('  fields[1]:', fields[1], '(开盘)');
+        console.log('  fields[2]:', fields[2], '(昨收)');
+        console.log('  fields[3]:', fields[3], '(当前价)');
+        console.log('  fields[4]:', fields[4], '(最高)');
+        console.log('  fields[5]:', fields[5], '(最低)');
+      }
+
       const stockName = name || fields[0] || '';
       const open = parseFloat(fields[1]) || 0;
       const preClose = parseFloat(fields[2]) || 0;
@@ -235,10 +294,48 @@ class StockService {
       const change = price - preClose;
       const changePercent = preClose > 0 ? ((change / preClose) * 100) : 0;
 
+      // 调试：打印铖昌科技的解析结果
+      if (code === '001270') {
+        console.log('[铖昌科技] 解析后的数据:');
+        console.log('  price:', price);
+        console.log('  preClose:', preClose);
+        console.log('  open:', open);
+        console.log('  change:', change);
+        console.log('  changePercent:', changePercent);
+      }
+
       // 判断状态
       let status = 'normal';
-      if (price === 0) {
+      // 检测停牌：价格为0且开盘、最高、最低都为0，说明是停牌状态
+      // 停牌时新浪API返回price=0，应该用preClose作为显示价格
+      if (price === 0 && open === 0 && high === 0 && low === 0) {
         status = 'stopped'; // 停牌
+        // 停牌时用昨收价作为当前价，涨跌为0
+        price = preClose;
+
+        // 调试：打印修正后的数据
+        if (code === '001270') {
+          console.log('[铖昌科技] 检测到停牌，修正后数据:');
+          console.log('  price:', price);
+          console.log('  change:', 0);
+          console.log('  changePercent:', 0);
+        }
+
+        return {
+          code,
+          name: stockName,
+          price,
+          preClose,
+          open,
+          high,
+          low,
+          change: 0,
+          changePercent: 0,
+          volume: volume * 100, // 转换为股
+          amount: amount , // 转换为元
+          updateTime: date && time ? `${date} ${time}` : '',
+          status
+        };
       } else if (date === '' || time === '') {
         status = 'closed'; // 盘后
       }

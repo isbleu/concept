@@ -897,29 +897,90 @@ function getMinuteChartOption(data) {
 
 // K线图配置
 function getDailyChartOption(data) {
+  // 保存完整数据（包含隐藏的第0天）用于计算涨幅
+  const fullKlineData = data.klineData;
+  const fullDates = data.dates;
+
+  // 去掉第0天（隐藏），只显示后30天
+  const displayKlineData = fullKlineData.slice(1);
+  const displayDates = fullDates.slice(1);
+
   return {
     backgroundColor: 'transparent',
-    grid: { left: 10, right: 10, top: 10, bottom: 20 },
+    grid: { left: 60, right: 20, top: 20, bottom: 30 },
     tooltip: {
       trigger: 'axis',
-      axisPointer: { type: 'cross' }
+      axisPointer: { type: 'cross' },
+      formatter: function(params) {
+        console.log('[K线Tooltip] params:', JSON.stringify(params));
+        const dataIndex = params[0].dataIndex;
+        const klineData = params[0].data;
+        const date = params[0].name;
+        console.log('[K线Tooltip] dataIndex:', dataIndex, 'klineData:', klineData, 'date:', date);
+
+        // ECharts candlestick tooltip data format:
+        // 实际格式是 [index, open, close, low, high, volume]
+        let open, close, low, high;
+        if (Array.isArray(klineData)) {
+          // klineData是数组: [index, open, close, low, high, volume]
+          open = klineData[1];
+          close = klineData[2];
+          low = klineData[3];
+          high = klineData[4];
+        } else if (klineData.value && Array.isArray(klineData.value)) {
+          // klineData.value也是数组: [index, open, close, low, high, volume]
+          open = klineData.value[1];
+          close = klineData.value[2];
+          low = klineData.value[3];
+          high = klineData.value[4];
+        }
+
+        // 计算相对前一日涨幅（使用完整数据的索引+1，因为第0天被隐藏了）
+        const actualIndex = dataIndex + 1; // 实际在完整数据中的索引
+        let changeInfo = '';
+        if (actualIndex > 0 && actualIndex < fullKlineData.length) {
+          const prevClose = fullKlineData[actualIndex - 1][1]; // 前一日收盘价
+          const currentClose = close; // 当前收盘价
+          const change = currentClose - prevClose;
+          const changePercent = (change / prevClose * 100).toFixed(2);
+
+          const percentText = changePercent >= 0 ? `+${changePercent}%` : `${changePercent}%`;
+          const colorClass = change >= 0 ? 'color: #ef4444;' : 'color: #22c55e;';
+
+          changeInfo = `<div style="${colorClass}font-weight:600;margin-bottom:8px;">涨幅: ${percentText}</div>`;
+        }
+
+        return `${date}<br/>${changeInfo}开盘: ${open}<br/>收盘: ${close}<br/>最低: ${low}<br/>最高: ${high}`;
+      }
     },
     xAxis: {
       type: 'category',
-      data: data.dates,
+      data: displayDates,
       axisLine: { lineStyle: { color: '#4b5563' } },
-      axisLabel: { color: '#9ca3af' }
+      axisLabel: {
+        color: '#9ca3af',
+        formatter: function(value) {
+          // 只显示月-日
+          return value.substring(5);
+        }
+      }
     },
     yAxis: {
       type: 'value',
       scale: true,
       axisLine: { lineStyle: { color: '#4b5563' } },
-      axisLabel: { color: '#9ca3af' },
+      axisLabel: {
+        color: '#9ca3af',
+        formatter: function(value) {
+          // 保留2位小数
+          return value.toFixed(2);
+        }
+      },
       splitLine: { lineStyle: { color: '#374151' } }
     },
     series: [{
       type: 'candlestick',
-      data: data.klineData,
+      data: displayKlineData,
       itemStyle: {
         color: '#ef4444',
         color0: '#22c55e',

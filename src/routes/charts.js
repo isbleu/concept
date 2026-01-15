@@ -62,9 +62,9 @@ router.get('/minute/:code', async (req, res) => {
 router.get('/daily/:code', async (req, res) => {
   try {
     const { code } = req.params;
+    console.log('[K线API] 请求股票:', code);
 
-    // 腾讯财经K线数据API
-    // 格式: sh600519 或 sz000001
+    // 格式化代码，添加sh/sz前缀
     let formattedCode = code;
     if (!code.startsWith('sh') && !code.startsWith('sz')) {
       const first = code.charAt(0);
@@ -74,15 +74,24 @@ router.get('/daily/:code', async (req, res) => {
         formattedCode = 'sz' + code;
       }
     }
+    console.log('[K线API] 格式化代码:', formattedCode);
 
-    const url = `https://qt.gtimg.cn/q=${formattedCode}`;
+    // 使用新浪财经K线API获取真实K线数据
+    // scale=240 表示日K线，datalen=31 表示获取31天（第0天隐藏用于计算涨幅）
+    const url = `https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=${formattedCode}&scale=240&ma=no&datalen=31`;
+    console.log('[K线API] 请求URL:', url);
+
     const response = await axios.get(url, {
-      timeout: 5000,
+      timeout: 10000,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://finance.sina.com.cn'
       }
     });
 
+    console.log('[K线API] API响应成功');
+
+    // 解析K线数据
     const data = parseDailyData(response.data, code);
 
     res.json({
@@ -90,8 +99,9 @@ router.get('/daily/:code', async (req, res) => {
       data: data
     });
   } catch (error) {
-    console.error('获取K线数据失败:', error.message);
-    // 返回模拟数据
+    console.error('[K线API] 获取失败:', error.message);
+    // 返回模拟数据作为fallback
+    console.log('[K线API] 使用模拟数据fallback');
     res.json({
       success: true,
       data: generateMockDailyData(req.params.code)
@@ -231,20 +241,42 @@ function generateMockMinuteData(code, basePrice = 10.00) {
   return { times, prices: smoothedPrices, code };
 }
 
-// 解析K线数据（生成模拟数据）
+// 解析K线数据（使用新浪K线API获取真实数据）
 function parseDailyData(data, code) {
-  // 腾讯API格式: v_sh600519="..." 或 v_sz000001="..."
-  const match = data.match(new RegExp('v_' + code + '="(.+?)"'));
-  let basePrice = 20.00;
+  try {
+    // 数据已经是从新浪API获取的JSON数组
+    if (Array.isArray(data) && data.length > 0) {
+      const dates = [];
+      const klineData = [];
 
-  if (match) {
-    const fields = match[1].split('~');
-    if (fields && fields.length > 3) {
-      basePrice = parseFloat(fields[3]) || 20.00;
+      // 新浪K线数据格式: [{day, open, high, low, close, volume}, ...]
+      for (const item of data) {
+        if (item.day && item.open && item.high && item.low && item.close) {
+          dates.push(item.day);
+
+          // ECharts candlestick格式: [open, close, low, high, volume]
+          klineData.push([
+            parseFloat(item.open),
+            parseFloat(item.close),
+            parseFloat(item.low),
+            parseFloat(item.high),
+            parseInt(item.volume) || 0
+          ]);
+        }
+      }
+
+      console.log('[K线API] 解析成功，数据点数:', klineData.length);
+
+      if (klineData.length > 0) {
+        return { dates, klineData };
+      }
     }
-  }
 
-  return generateMockDailyData(code, basePrice);
+    throw new Error('Invalid K-line data format');
+  } catch (error) {
+    console.error('[K线API] 解析失败:', error.message);
+    throw error;
+  }
 }
 
 // 生成模拟日K线数据
