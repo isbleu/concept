@@ -92,7 +92,6 @@ router.post('/', authMiddleware, async (req, res) => {
  * 获取概念的成分股实时行情
  */
 router.get('/:id/stocks', async (req, res) => {
-  console.log('=== API /:id/stocks called for concept ===', req.params.id);
   try {
     const concept = await dataService.getConceptById(req.params.id);
     if (!concept) {
@@ -127,8 +126,6 @@ router.get('/:id/stocks', async (req, res) => {
     });
     const avgChangePercent = validCount > 0 ? totalChangePercent / validCount : 0;
 
-    console.log('=== Backend avgChangePercent ===', avgChangePercent, 'validCount:', validCount);
-
     const responseData = {
       success: true,
       data: {
@@ -139,8 +136,6 @@ router.get('/:id/stocks', async (req, res) => {
         updateTime: new Date().toISOString()
       }
     };
-
-    console.log('=== Response data.avgChangePercent ===', responseData.data.avgChangePercent);
 
     res.json(responseData);
   } catch (error) {

@@ -670,10 +670,6 @@ function getMinuteChartOption(data) {
   // 计算边界的最大涨跌幅 = max(abs(最高价-昨收)/昨收, abs(最低价-昨收)/昨收)
   const maxChange = Math.max(Math.abs(maxChangeUp), Math.abs(maxChangeDown));
 
-  console.log('[分时图] 当日最高价:', maxPrice.toFixed(2), '涨幅:', maxChangeUp.toFixed(2) + '%');
-  console.log('[分时图] 当日最低价:', minPrice.toFixed(2), '跌幅:', maxChangeDown.toFixed(2) + '%');
-  console.log('[分时图] 边界涨跌幅:', maxChange.toFixed(2) + '%');
-
   // 生成10个等比例区间的刻度
   // 注意：数组从大到小排列（索引0是最大值，索引10是最小值）
   const tickCount = 10;
@@ -692,11 +688,6 @@ function getMinuteChartOption(data) {
   // priceTicks[0] = 最高价格（对应+maxChange%）
   // priceTicks[tickCount] = 最低价格（对应-maxChange%）
   // priceTicks[tickCount/2] = 昨收（对应0%）
-
-  console.log('[分时图] 昨收:', prevClose);
-  console.log('[分时图] 最大涨跌幅:', maxChange.toFixed(2) + '%');
-  console.log('[分时图] Y轴价格范围:', (prevClose * (1 - maxChange / 100)).toFixed(2), 'to', (prevClose * (1 + maxChange / 100)).toFixed(2));
-  console.log('[分时图] Y轴涨跌幅范围:', '-' + maxChange.toFixed(2) + '% to +' + maxChange.toFixed(2) + '%');
 
   // 横坐标：显示全天时间轴，每30分钟一个标记
   const fullDayTimes = [];
@@ -920,11 +911,9 @@ function getDailyChartOption(data) {
       trigger: 'axis',
       axisPointer: { type: 'cross' },
       formatter: function(params) {
-        console.log('[K线Tooltip] params:', JSON.stringify(params));
         const dataIndex = params[0].dataIndex;
         const klineData = params[0].data;
         const date = params[0].name;
-        console.log('[K线Tooltip] dataIndex:', dataIndex, 'klineData:', klineData, 'date:', date);
 
         // ECharts candlestick tooltip data format:
         // 实际格式是 [index, open, close, low, high, volume]

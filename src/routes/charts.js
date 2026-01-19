@@ -9,7 +9,6 @@ const axios = require('axios');
 router.get('/minute/:code', async (req, res) => {
   try {
     const { code } = req.params;
-    console.log('[分时图API] 请求股票:', code);
 
     // 格式化代码，添加sh/sz前缀
     let formattedCode = code;
@@ -21,11 +20,9 @@ router.get('/minute/:code', async (req, res) => {
         formattedCode = 'sz' + code;
       }
     }
-    console.log('[分时图API] 格式化代码:', formattedCode);
 
     // 使用腾讯财经分时图API获取真实分时数据
     const url = `https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=${formattedCode}`;
-    console.log('[分时图API] 请求URL:', url);
 
     const response = await axios.get(url, {
       timeout: 10000,
@@ -34,11 +31,8 @@ router.get('/minute/:code', async (req, res) => {
       }
     });
 
-    console.log('[分时图API] API响应成功');
-
     // 解析分时数据
     const data = parseMinuteData(response.data, formattedCode);
-    console.log('[分时图API] 解析成功, 数据点数:', data.times.length);
 
     res.json({
       success: true,
@@ -47,7 +41,6 @@ router.get('/minute/:code', async (req, res) => {
   } catch (error) {
     console.error('[分时图API] 获取失败:', error.message);
     // 返回模拟数据作为fallback
-    console.log('[分时图API] 使用模拟数据fallback');
     res.json({
       success: true,
       data: generateMockMinuteData(req.params.code)
@@ -62,7 +55,6 @@ router.get('/minute/:code', async (req, res) => {
 router.get('/daily/:code', async (req, res) => {
   try {
     const { code } = req.params;
-    console.log('[K线API] 请求股票:', code);
 
     // 格式化代码，添加sh/sz前缀
     let formattedCode = code;
@@ -74,12 +66,10 @@ router.get('/daily/:code', async (req, res) => {
         formattedCode = 'sz' + code;
       }
     }
-    console.log('[K线API] 格式化代码:', formattedCode);
 
     // 使用新浪财经K线API获取真实K线数据
     // scale=240 表示日K线，datalen=31 表示获取31天（第0天隐藏用于计算涨幅）
     const url = `https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=${formattedCode}&scale=240&ma=no&datalen=31`;
-    console.log('[K线API] 请求URL:', url);
 
     const response = await axios.get(url, {
       timeout: 10000,
@@ -88,8 +78,6 @@ router.get('/daily/:code', async (req, res) => {
         'Referer': 'https://finance.sina.com.cn'
       }
     });
-
-    console.log('[K线API] API响应成功');
 
     // 解析K线数据
     const data = parseDailyData(response.data, code);
@@ -101,7 +89,6 @@ router.get('/daily/:code', async (req, res) => {
   } catch (error) {
     console.error('[K线API] 获取失败:', error.message);
     // 返回模拟数据作为fallback
-    console.log('[K线API] 使用模拟数据fallback');
     res.json({
       success: true,
       data: generateMockDailyData(req.params.code)
@@ -148,8 +135,6 @@ function parseMinuteData(response, code) {
     if (!prevClose || isNaN(prevClose)) {
       throw new Error('Cannot get previous close price');
     }
-
-    console.log('[分时数据API] 昨收:', prevClose, '今最高:', dayHigh, '今最低:', dayLow);
 
     // 解析每条分时记录
     // 格式: "0930 1411.00 183 25821300.00"
@@ -264,8 +249,6 @@ function parseDailyData(data, code) {
           ]);
         }
       }
-
-      console.log('[K线API] 解析成功，数据点数:', klineData.length);
 
       if (klineData.length > 0) {
         return { dates, klineData };

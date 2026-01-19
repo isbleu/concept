@@ -101,19 +101,7 @@ class SearchService {
       }
     );
 
-    // 调试：输出完整响应
-    console.log('\n=== GLM API 完整响应 ===');
-    console.log('HTTP状态:', response.status);
-    console.log('响应数据:', JSON.stringify(response.data, null, 2));
-    console.log('=== GLM API 响应结束 ===\n');
-
     const content = response.data.choices[0].message.content;
-
-    // 断点：输出 AI 原始响应
-    console.log('\n=== _aiSearchWithWebSearch() 返回的原始响应 ===');
-    console.log('Content 类型:', typeof content);
-    console.log('Content 值:', content);
-    console.log('=== 原始响应结束 ===\n');
 
     return this._extractJSONFromResponse(content);
   }
@@ -187,23 +175,16 @@ class SearchService {
           }
 
           if (stocksArray && stocksArray.length > 0) {
-            console.log(`成功提取 JSON，包含 ${stocksArray.length} 项`);
-
             // 验证并过滤股票数据
             const validStocks = stocksArray.filter(item => {
               const isValid = this._isValidStock(item?.code, item?.name);
-              if (!isValid) {
-                console.log(`过滤无效股票:`, item);
-              }
               return isValid;
             });
 
-            console.log(`过滤后剩余 ${validStocks.length} 只有效股票`);
             return validStocks;
           }
         }
       } catch (e) {
-        console.log('提取方法失败:', e.message);
         continue;
       }
     }
@@ -234,7 +215,6 @@ class SearchService {
 
     // 排除 ST、*ST 等特殊处理股票
     if (name.includes('ST') || name.includes('退') || name.includes('*')) {
-      console.log(`过滤特殊股票: ${name}`);
       return false;
     }
 
