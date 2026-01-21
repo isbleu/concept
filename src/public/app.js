@@ -62,6 +62,8 @@ const elements = {
 async function init() {
   setupEventListeners();
   await loadConcepts();
+  await loadDeletedConcepts();  // 加载回收站数据
+  updateButtons();              // 更新按钮显示
   startAutoRefresh();
 }
 
