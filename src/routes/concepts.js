@@ -28,6 +28,45 @@ router.get('/', async (req, res) => {
 });
 
 /**
+ * GET /api/concepts/trash
+ * 获取回收站列表（必须在 /:id 路由之前定义）
+ */
+router.get('/trash', async (req, res) => {
+  try {
+    const deletedConcepts = await dataService.getDeletedConcepts();
+    res.json({ success: true, data: deletedConcepts });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/concepts/trash/restore/:id
+ * 恢复概念（需要认证）
+ */
+router.post('/trash/restore/:id', authMiddleware, async (req, res) => {
+  try {
+    await dataService.restoreConcept(req.params.id);
+    res.json({ success: true, message: '概念已恢复' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/concepts/trash/:id
+ * 永久删除概念（需要认证）
+ */
+router.delete('/trash/:id', authMiddleware, async (req, res) => {
+  try {
+    await dataService.permanentlyDeleteConcept(req.params.id);
+    res.json({ success: true, message: '概念已永久删除' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * GET /api/concepts/:id
  * 获取单个概念详情
  */

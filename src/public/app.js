@@ -11,6 +11,8 @@ console.log('=== app.js v11 loaded ===');
 
 // 状态管理
 let concepts = [];
+let deletedConcepts = [];  // 已删除概念列表
+let isTrashView = false;   // 当前视图状态
 let refreshInterval = null;
 const REFRESH_INTERVAL = 5000; // 5秒刷新一次
 
@@ -88,6 +90,9 @@ async function loadConcepts() {
       setTimeout(() => {
         reorderConceptCards();
       }, 100);
+
+      // 更新按钮文字和数量
+      updateButtons();
     }
   } catch (error) {
     console.error('加载概念失败:', error);
@@ -362,6 +367,10 @@ window.showChartPopup = showChartPopup;
 window.hideChartPopup = hideChartPopup;
 window.switchChartType = switchChartType;
 window.closeChart = closeChart;
+// 回收站相关函数
+window.restoreConcept = restoreConcept;
+window.permanentlyDeleteConcept = permanentlyDeleteConcept;
+window.toggleTrashView = toggleTrashView;
 
 // 按板块涨幅重排序卡片（使用 CSS order，无闪烁）
 function reorderConceptCards() {
@@ -403,19 +412,50 @@ function toggleReason(conceptId) {
   loadConceptQuotes(conceptId, true);
 }
 
+// 更新按钮文字和数量的统一函数
+function updateButtons() {
+  // 更新折叠按钮
+  const collapseBtn = document.getElementById('collapseBtn');
+  if (collapseBtn) {
+    const count = isTrashView ? deletedConcepts.length : concepts.length;
+    collapseBtn.textContent = `${globalCollapsed ? '展开全部' : '折叠全部'} (${count})`;
+    // 在回收站视图中禁用折叠按钮
+    collapseBtn.disabled = isTrashView;
+    // 添加禁用样式
+    if (isTrashView) {
+      collapseBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    } else {
+      collapseBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+  }
+
+  // 更新回收站按钮
+  const trashBtn = document.getElementById('trashBtn');
+  if (trashBtn) {
+    if (isTrashView) {
+      trashBtn.textContent = '返回列表';
+    } else {
+      trashBtn.textContent = `🗑️ 回收站 (${deletedConcepts.length})`;
+    }
+  }
+}
+
 // 切换全局折叠/展开状态
 function toggleGlobalCollapse() {
   globalCollapsed = !globalCollapsed;
-  const btn = document.getElementById('collapseBtn');
-  if (btn) {
-    btn.textContent = globalCollapsed ? '展开全部' : '折叠全部';
-  }
 
   // 切换所有板块的股票列表显示
   const containers = document.querySelectorAll('.stocks-container');
   containers.forEach(container => {
     container.style.display = globalCollapsed ? 'none' : '';
   });
+
+  // 只更新折叠按钮文字，不调用 updateButtons() 避免影响回收站按钮状态
+  const collapseBtn = document.getElementById('collapseBtn');
+  if (collapseBtn) {
+    const count = isTrashView ? deletedConcepts.length : concepts.length;
+    collapseBtn.textContent = `${globalCollapsed ? '展开全部' : '折叠全部'} (${count})`;
+  }
 }
 
 // 切换全局排序方向
@@ -1185,7 +1225,7 @@ function renderConcepts() {
 // 添加概念
 async function handleAddConcept(e) {
   e.preventDefault();
-  
+
   const name = elements.conceptInput.value.trim();
   if (!name) return;
 
@@ -1199,12 +1239,14 @@ async function handleAddConcept(e) {
     });
 
     const result = await response.json();
-    
+
     if (result.success) {
       concepts.push(result.data);
       renderConcepts();
       await loadConceptQuotes(result.data.id);
       elements.conceptInput.value = '';
+      // 更新按钮
+      updateButtons();
     } else {
       alert('添加失败: ' + result.error);
     }
@@ -1224,7 +1266,9 @@ async function refreshConcept(conceptId) {
 
 // 删除概念
 async function deleteConcept(conceptId) {
-  if (!confirm('确定要删除这个概念吗？')) return;
+  const concept = concepts.find(c => c.id === conceptId);
+  if (!concept) return;
+  if (!confirm(`确定要删除"${concept.name}"板块吗？`)) return;
 
   try {
     const response = await fetch(`${API_BASE}/concepts/${conceptId}`, {
@@ -1236,6 +1280,9 @@ async function deleteConcept(conceptId) {
     if (result.success) {
       concepts = concepts.filter(c => c.id !== conceptId);
       renderConcepts();
+      // 更新按钮（同时需要更新回收站数量）
+      deletedConcepts.push(result.data); // 添加到回收站数组
+      updateButtons();
     } else {
       alert('删除失败: ' + result.error);
     }
@@ -1243,6 +1290,134 @@ async function deleteConcept(conceptId) {
     console.error('删除概念失败:', error);
     alert('删除失败，请重试');
   }
+}
+
+// ====== 回收站相关函数 ======
+
+// 加载回收站列表
+async function loadDeletedConcepts() {
+  try {
+    const response = await fetch(`${API_BASE}/concepts/trash`);
+    const result = await response.json();
+    if (result.success) {
+      deletedConcepts = result.data;
+    }
+  } catch (error) {
+    console.error('加载回收站失败:', error);
+  }
+}
+
+// 渲染回收站视图
+function renderDeletedConcepts() {
+  if (deletedConcepts.length === 0) {
+    elements.conceptsList.innerHTML = '<div class="text-center text-gray-500 py-12">回收站为空</div>';
+    return;
+  }
+
+  elements.conceptsList.innerHTML = deletedConcepts.map(concept => {
+    const htmlName = escapeHtml(concept.name);
+    const deletedAt = new Date(concept.deletedAt).toLocaleString('zh-CN');
+    return `
+    <div class="concept-card bg-gray-700 rounded-lg overflow-hidden fade-in" data-concept-id="${concept.id}">
+      <div class="p-4 border-b border-gray-600 flex justify-between items-center">
+        <div>
+          <h3 class="text-lg font-semibold">${htmlName}</h3>
+          <div class="text-sm text-gray-400">删除于: ${deletedAt}</div>
+          <div class="text-xs text-gray-500">成分股: ${concept.stocks ? concept.stocks.length : 0} 只</div>
+        </div>
+        <div class="space-x-2">
+          <button onclick="restoreConcept('${concept.id}')" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">恢复</button>
+          <button onclick="permanentlyDeleteConcept('${concept.id}')" class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">永久删除</button>
+        </div>
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
+// 恢复概念
+async function restoreConcept(conceptId) {
+  const concept = deletedConcepts.find(c => c.id === conceptId);
+  if (!concept) return;
+  if (!confirm(`确定要恢复"${concept.name}"板块吗？`)) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/concepts/trash/restore/${conceptId}`, {
+      method: 'POST'
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      deletedConcepts = deletedConcepts.filter(c => c.id !== conceptId);
+      await loadConcepts();
+      renderDeletedConcepts();
+      // 更新按钮
+      updateButtons();
+      if (deletedConcepts.length === 0) {
+        toggleTrashView();
+      }
+    } else {
+      alert('恢复失败: ' + result.error);
+    }
+  } catch (error) {
+    console.error('恢复概念失败:', error);
+    alert('恢复失败，请重试');
+  }
+}
+
+// 永久删除概念
+async function permanentlyDeleteConcept(conceptId) {
+  const concept = deletedConcepts.find(c => c.id === conceptId);
+  if (!concept) return;
+  if (!confirm(`确定要永久删除"${concept.name}"板块吗？此操作不可恢复！`)) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/concepts/trash/${conceptId}`, {
+      method: 'DELETE'
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      deletedConcepts = deletedConcepts.filter(c => c.id !== conceptId);
+      renderDeletedConcepts();
+      // 更新按钮
+      updateButtons();
+      if (deletedConcepts.length === 0) {
+        toggleTrashView();
+      }
+    } else {
+      alert('永久删除失败: ' + result.error);
+    }
+  } catch (error) {
+    console.error('永久删除概念失败:', error);
+    alert('永久删除失败，请重试');
+  }
+}
+
+// 切换回收站视图
+async function toggleTrashView() {
+  isTrashView = !isTrashView;
+
+  if (isTrashView) {
+    await loadDeletedConcepts();
+    renderDeletedConcepts();
+    elements.form.classList.add('hidden');
+  } else {
+    renderConcepts();
+    // 应用折叠状态（如果已设置）
+    if (globalCollapsed) {
+      const containers = document.querySelectorAll('.stocks-container');
+      containers.forEach(container => {
+        container.style.display = 'none';
+      });
+    }
+    elements.form.classList.remove('hidden');
+  }
+
+  // 使用统一函数更新按钮
+  updateButtons();
 }
 
 // 显示/隐藏加载状态
@@ -1293,3 +1468,4 @@ window.addEventListener('beforeunload', () => {
 
 // 启动应用
 init();
+
