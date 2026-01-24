@@ -43,3 +43,7 @@ app.listen(PORT, () => {
 ╚════════════════════════════════════════╝
   `);
 });
+
+// Netlify Functions export
+const serverless = require('serverless-http');
+module.exports.handler = serverless(app);
