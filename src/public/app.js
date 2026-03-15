@@ -7,7 +7,7 @@ function padZero(num) {
 }
 
 // 版本标识 - 用于确认代码已更新
-console.log('=== app.js v11 loaded ===');
+console.log('=== app.js v12 loaded (with stockCount support) ===');
 
 // 状态管理
 let concepts = [];
@@ -1231,13 +1231,17 @@ async function handleAddConcept(e) {
   const name = elements.conceptInput.value.trim();
   if (!name) return;
 
+  // 获取股票数量
+  const stockCountSelect = document.getElementById('stockCount');
+  const stockCount = parseInt(stockCountSelect.value, 10);
+
   setAddingState(true);
 
   try {
     const response = await fetch(`${API_BASE}/concepts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name })
+      body: JSON.stringify({ name, stockCount })
     });
 
     const result = await response.json();

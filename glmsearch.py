@@ -1,23 +1,24 @@
 import requests
-prompt = """请搜索并返回SpaceX概念股的中国A股核心上市公司。
+conceptName = "燃气轮机"
+prompt = """请搜索并返回【%s】概念股的中国A股核心上市公司。
 
 要求：
 1. 只返回中国A股市场（上海、深圳证券交易所）的股票
 2. 股票代码必须是6位数字
 3. 返回四个字段：code（代码）、name（中文名称）、market（SH/SZ）、reason（选中理由，简要说明该公司与概念的关联性，不超过50字）
-4. 返回5-10只该概念相关的核心股票
+4. 返回10-15只左右该概念相关的近期热门强势股票，成交额大的优先
 
 返回JSON格式：
 {
   "stocks": [
     {"code": "300136", "name": "信维通信", "market": "SZ", "reason": "是星链卫星互联网地面终端设备中核心连接器的独家供应商"}
   ]
-}"""
+}"""  % conceptName
 
 url = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 
 payload = {
-    "model": "glm-4.5-flash",
+    "model": "GLM-5",
     "messages": [
         {
             "role": "user",

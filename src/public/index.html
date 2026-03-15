@@ -211,7 +211,7 @@
 
     <!-- 添加概念表单 -->
     <section class="bg-gray-800 rounded-lg p-6 mb-8">
-      <form id="addConceptForm" class="flex gap-4">
+      <form id="addConceptForm" class="flex gap-4 items-center">
         <input
           type="text"
           id="conceptName"
@@ -219,6 +219,15 @@
           class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500"
           required
         >
+        <select
+          id="stockCount"
+          class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-3 focus:outline-none focus:border-blue-500 text-sm"
+        >
+          <option value="10" selected>10只</option>
+          <option value="5">5只</option>
+          <option value="15">15只</option>
+          <option value="20">20只</option>
+        </select>
         <button
           type="submit"
           id="addBtn"

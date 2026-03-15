@@ -31,7 +31,7 @@ app.use((req, res) => {
 
 // 启动服务器
 app.listen(PORT, () => {
-  const aiEnabled = process.env.GLM_API_KEY ? '已启用' : '未启用 (使用内置库)';
+  const aiEnabled = process.env.MINIMAX_API_KEY ? '已启用' : '未启用 (使用内置库)';
   console.log(`
 ╔════════════════════════════════════════╗
 ║   股票概念题材管理系统                  ║

@@ -2,33 +2,40 @@ const axios = require('axios');
 
 /**
  * 股票概念成分股搜索服务
- * 使用 GLM-4.5 AI 进行联网搜索并智能提取成分股
+ * 使用阿里云 Qwen API 进行联网搜索并智能提取成分股
  */
 class SearchService {
   constructor() {
-    // GLM-4.5 API 配置（使用更强大的标准模型以提高准确性）
+    // Qwen API 配置
     this.apiConfig = {
-      baseURL: 'https://open.bigmodel.cn/api/paas/v4/',
-      apiKey: process.env.GLM_API_KEY || '',
-      model: 'glm-4.5'
+      baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      apiKey: process.env.QWEN_API_KEY || '',
+      model: 'qwen3.5-plus'
     };
   }
 
   /**
    * 搜索并解析概念成分股
    * @param {string} conceptName - 概念名称
+   * @param {number} stockCount - 股票数量（可选值：5, 10, 15, 20，默认10）
    * @returns {Promise<Array>} 成分股列表
    */
-  async searchConceptStocks(conceptName) {
-    console.log(`正在使用 AI 联网搜索 "${conceptName}" 的成分股...`);
+  async searchConceptStocks(conceptName, stockCount = 10) {
+    console.log(`正在使用 Qwen API 联网搜索 "${conceptName}" 的成分股...`);
 
     const apiKey = this.apiConfig.apiKey;
     if (!apiKey) {
-      throw new Error('未设置 GLM_API_KEY 环境变量');
+      throw new Error('未设置 QWEN_API_KEY 环境变量');
     }
 
-    // 使用 GLM-4.5 Flash 进行联网搜索
-    const stocks = await this._aiSearchWithWebSearch(conceptName);
+    // 验证 stockCount
+    const validCounts = [5, 10, 15, 20];
+    if (!validCounts.includes(stockCount)) {
+      stockCount = 10; // 默认值
+    }
+
+    // 使用 Qwen API 进行联网搜索
+    const stocks = await this._aiSearchWithWebSearch(conceptName, stockCount);
 
     if (stocks.length === 0) {
       throw new Error('AI 搜索未返回有效股票数据');
@@ -39,10 +46,11 @@ class SearchService {
   }
 
   /**
-   * 使用 GLM-4.5 Flash API 进行联网搜索并提取成分股
+   * 使用 Qwen API 进行联网搜索并提取成分股
+   * 支持流式响应处理
    */
-  async _aiSearchWithWebSearch(conceptName) {
-    // 构建 prompt - 优化版本，提高搜索准确性和减少幻觉
+  async _aiSearchWithWebSearch(conceptName, stockCount = 10) {
+    // 构建 prompt
     let prompt = `
 请搜索并返回【${conceptName}】概念股的中国A股核心上市公司。
 
@@ -50,7 +58,8 @@ class SearchService {
 1. 只返回中国A股市场（上海、深圳证券交易所）的股票
 2. 股票代码必须是6位数字
 3. 返回四个字段：code（代码）、name（中文名称）、market（SH/SZ）、reason（选中理由，简要说明该公司与概念的关联性，不超过50字）
-4. 返回10只左右该概念相关的近期热门强势股票
+4. 返回${stockCount}只该概念相关的近期热门强势股票
+5. 如果不确定某只股票代码，请不要返回
 
 返回JSON格式：
 {
@@ -58,51 +67,60 @@ class SearchService {
     {"code": "300136", "name": "信维通信", "market": "SZ", "reason": "是星链卫星互联网地面终端设备中核心连接器的独家供应商"}
   ]
 }`;
-    
 
+    // 使用 Qwen API，支持流式响应
     const response = await axios.post(
-      `${this.apiConfig.baseURL}chat/completions`,
+      `${this.apiConfig.baseURL}/chat/completions`,
       {
         model: this.apiConfig.model,
         messages: [
           {
             role: 'system',
-            content: '你是一位严谨的中国A股研究员。你的工作方法是：通过联网搜索券商研报、公司公告、权威媒体报道来挖掘概念股。你只输出在搜索结果中明确看到股票代码的公司，如果搜索结果中没有明确代码，你绝不猜测或编造。你深知错误的股票代码会给投资者带来严重损失，因此你对代码准确性要求极高。'
+            content: '你是专业的中国A股股票分析助手。'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        // 禁用深度思考，加快响应速度
-        thinking: { type: 'disabled' },
-        tools: [
-          {
-            type: 'web_search',
-            web_search: {
-              search_engine: 'search_std',
-              enable: true,
-              // 返回搜索来源，便于验证搜索质量
-              search_result: true
-            }
-          }
-        ],
-        // 降低温度以获得更稳定准确的结果（极低温度减少幻觉）
-        temperature: 0.1,
+        stream: true,
         top_p: 0.8,
-        response_format: { type: 'json_object' }
+        temperature: 0.7,
+        extra_body: {
+          enable_search: true,
+          enable_thinking: false,
+          thinking_budget: 4000
+        }
       },
       {
         headers: {
           'Authorization': `Bearer ${this.apiConfig.apiKey}`,
           'Content-Type': 'application/json'
         },
-        timeout: 60000
+        timeout: 120000,
+        responseType: 'stream'
       }
     );
 
-    const content = response.data.choices[0].message.content;
+    // 处理流式响应
+    let content = '';
+    for await (const chunk of response.data) {
+      const lines = chunk.toString().split('\n').filter(line => line.trim() !== '' && line.startsWith('data: '));
+      for (const line of lines) {
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.choices && parsed.choices[0].delta && parsed.choices[0].delta.content) {
+            content += parsed.choices[0].delta.content;
+          }
+        } catch (e) {
+          // 忽略解析错误
+        }
+      }
+    }
 
+    console.log('响应 content:', content);
     return this._extractJSONFromResponse(content);
   }
 

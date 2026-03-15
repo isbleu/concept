@@ -6,7 +6,7 @@ const stockService = require('../services/stockService');
 const authMiddleware = require('../middleware/auth');
 
 // 启动日志 - 验证代码已更新
-console.log('=== concepts.js v4 loaded ===');
+console.log('=== concepts.js v5 loaded (with stockCount support) ===');
 
 /**
  * GET /api/concepts
@@ -94,11 +94,11 @@ router.get('/:id', async (req, res) => {
 /**
  * POST /api/concepts
  * 创建新概念并搜索成分股（需要认证）
- * Body: { name: string }
+ * Body: { name: string, stockCount?: number }
  */
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, stockCount } = req.body;
 
     if (!name || name.trim() === '') {
       return res.status(400).json({
@@ -107,8 +107,8 @@ router.post('/', authMiddleware, async (req, res) => {
       });
     }
 
-    // 搜索成分股
-    const stocks = await searchService.searchConceptStocks(name.trim());
+    // 搜索成分股，传入 stockCount 参数
+    const stocks = await searchService.searchConceptStocks(name.trim(), stockCount);
 
     // 创建概念
     const concept = await dataService.createConcept(name.trim(), stocks);
@@ -208,10 +208,11 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 /**
  * PUT /api/concepts/:id
  * 更新概念（重新搜索成分股，需要认证）
+ * Body: { name: string, stockCount?: number }
  */
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, stockCount } = req.body;
 
     if (!name || name.trim() === '') {
       return res.status(400).json({
@@ -220,8 +221,8 @@ router.put('/:id', authMiddleware, async (req, res) => {
       });
     }
 
-    // 重新搜索成分股
-    const stocks = await searchService.searchConceptStocks(name.trim());
+    // 重新搜索成分股，传入 stockCount 参数
+    const stocks = await searchService.searchConceptStocks(name.trim(), stockCount);
 
     // 更新概念
     const concept = await dataService.updateConceptStocks(req.params.id, stocks);
