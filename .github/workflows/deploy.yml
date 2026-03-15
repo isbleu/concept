@@ -22,5 +22,5 @@ jobs:
             cd /home/chopin_soul/concept
             git pull origin main
             npm install
-            pm2 restart concept-server
+            pm2 restart concept
           EOF
