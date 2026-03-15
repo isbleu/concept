@@ -20,6 +20,7 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} -p ${{ secrets.VPS_PORT }} << 'EOF'
             cd /home/chopin_soul/concept
+            git checkout -- .
             git pull origin main
             npm install
             pm2 restart concept
