@@ -20,8 +20,15 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} -p ${{ secrets.VPS_PORT }} << 'EOF'
             cd /home/chopin_soul/concept
-            git checkout -- .
+            # 1. 备份本地数据文件
+            cp src/data/concepts.json /tmp/concepts.json.bak
+            # 2. 只恢复 package.json 和 package-lock.json（解决依赖冲突）
+            git checkout -- package.json package-lock.json
+            # 3. 拉取远程更新
             git pull origin main
+            # 4. 恢复本地数据文件
+            cp /tmp/concepts.json.bak src/data/concepts.json
+            # 5. 安装依赖并重启
             npm install
             pm2 restart concept
           EOF
