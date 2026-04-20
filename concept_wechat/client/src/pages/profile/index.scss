@@ -1,0 +1,264 @@
+/* ============================================
+   PROFILE PAGE — CSS Variable Theme System
+   ============================================ */
+.page.theme-dark {
+  --bg-page:        #0a0a14;
+  --bg-card:        #13131f;
+  --bg-hero:        linear-gradient(135deg, #1a1432 0%, #0d1a2e 100%);
+  --hero-border:    rgba(124,111,255,0.2);
+  --text-primary:   #f0f0f8;
+  --text-secondary: #8888aa;
+  --text-muted:     #555577;
+  --border:         rgba(255,255,255,0.06);
+  --menu-border:    rgba(255,255,255,0.04);
+  --menu-item-text: #e0e0f0;
+  --accent:         #7C6FFF;
+  --accent-soft:    rgba(124,111,255,0.15);
+  --accent-border:  rgba(124,111,255,0.3);
+  --level-bg:       rgba(124,111,255,0.15);
+  --level-text:     #9B8CFF;
+  --points-track:   rgba(255,255,255,0.06);
+  --arrow-color:    #444466;
+  --version-color:  #333355;
+  background: var(--bg-page);
+}
+
+.page.theme-light {
+  --bg-page:        #f0f3ff;
+  --bg-card:        #ffffff;
+  --bg-hero:        linear-gradient(135deg, #edeaff 0%, #e8f0ff 100%);
+  --hero-border:    rgba(108,95,252,0.2);
+  --text-primary:   #151525;
+  --text-secondary: #6b6b8a;
+  --text-muted:     #aaaacc;
+  --border:         rgba(0,0,0,0.07);
+  --menu-border:    rgba(0,0,0,0.04);
+  --menu-item-text: #2a2a3a;
+  --accent:         #6C5FFC;
+  --accent-soft:    rgba(108,95,252,0.08);
+  --accent-border:  rgba(108,95,252,0.2);
+  --level-bg:       rgba(108,95,252,0.08);
+  --level-text:     #6C5FFC;
+  --points-track:   rgba(0,0,0,0.06);
+  --arrow-color:    #ccccdd;
+  --version-color:  #ccccdd;
+  background: var(--bg-page);
+}
+
+page {
+  background: #0a0a14;
+  overflow-x: hidden;
+}
+
+.page {
+  min-height: 100vh;
+  padding-bottom: 160rpx;
+  overflow-x: hidden;
+}
+
+/* ===== 英雄卡片 ===== */
+.hero-card {
+  position: relative;
+  margin: 0 28rpx 24rpx;
+  border-radius: 28rpx;
+  overflow: hidden;
+}
+
+.hero-bg {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg-hero);
+  border: 1rpx solid var(--hero-border);
+}
+
+.hero-inner {
+  position: relative;
+  padding: 40rpx 36rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 36rpx;
+}
+
+.avatar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 28rpx;
+}
+
+.avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7C6FFF, #FF6B9D);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.avatar-emoji { font-size: 60rpx; }
+
+.avatar-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.user-name {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.level-badge {
+  background: var(--level-bg);
+  border: 1rpx solid var(--accent-border);
+  border-radius: 100rpx;
+  padding: 6rpx 18rpx;
+  display: inline-flex;
+  align-self: flex-start;
+}
+
+.level-text { font-size: 22rpx; color: var(--level-text); font-weight: 500; }
+
+.stats-row {
+  display: flex;
+  justify-content: space-around;
+  border-top: 1rpx solid var(--border);
+  padding-top: 32rpx;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.stat-value {
+  font-size: 52rpx;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-family: 'DIN Alternate', 'Helvetica Neue', sans-serif;
+}
+
+.stat-label { font-size: 22rpx; color: var(--text-secondary); }
+
+/* ===== 积分进度 ===== */
+.points-card {
+  margin: 0 28rpx 24rpx;
+  background: var(--bg-card);
+  border: 1rpx solid var(--border);
+  border-radius: 24rpx;
+  padding: 28rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.points-row { display: flex; justify-content: space-between; align-items: center; }
+.points-title { font-size: 26rpx; color: var(--text-secondary); }
+.points-remain { font-size: 30rpx; font-weight: 700; color: var(--accent); }
+
+.points-track {
+  height: 8rpx;
+  background: var(--points-track);
+  border-radius: 100rpx;
+  overflow: hidden;
+}
+
+.points-fill {
+  height: 100%;
+  background: linear-gradient(to right, #7C6FFF, #FF6B9D);
+  border-radius: 100rpx;
+}
+
+.points-hint { font-size: 22rpx; color: var(--text-muted); }
+
+/* ===== 菜单列表 ===== */
+.menu-list {
+  margin: 0 28rpx;
+  background: var(--bg-card);
+  border: 1rpx solid var(--border);
+  border-radius: 24rpx;
+  overflow: hidden;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 30rpx 32rpx;
+  gap: 24rpx;
+  border-bottom: 1rpx solid var(--menu-border);
+  &:last-child { border-bottom: none; }
+  &:active { background: var(--accent-soft); }
+}
+
+.menu-icon { font-size: 40rpx; width: 56rpx; text-align: center; }
+
+.menu-content { flex: 1; display: flex; flex-direction: column; gap: 6rpx; }
+.menu-label { font-size: 30rpx; font-weight: 600; color: var(--menu-item-text); }
+.menu-desc { font-size: 22rpx; color: var(--text-secondary); }
+.menu-arrow { font-size: 36rpx; color: var(--arrow-color); }
+
+/* ===== 主题切换 ===== */
+.theme-toggle-wrap {
+  margin: 24rpx 28rpx 0;
+  background: var(--bg-card);
+  border: 1rpx solid var(--border);
+  border-radius: 24rpx;
+  padding: 28rpx 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theme-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.theme-toggle-icon { font-size: 40rpx; }
+
+.theme-toggle-info { display: flex; flex-direction: column; gap: 6rpx; }
+.theme-toggle-label { font-size: 30rpx; font-weight: 600; color: var(--menu-item-text); }
+.theme-toggle-desc { font-size: 22rpx; color: var(--text-secondary); }
+
+/* 开关按钮 */
+.toggle-btn {
+  width: 100rpx;
+  height: 52rpx;
+  border-radius: 100rpx;
+  padding: 4rpx;
+  display: flex;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+.toggle-btn-dark {
+  background: rgba(255,255,255,0.1);
+  justify-content: flex-start;
+}
+
+.toggle-btn-light {
+  background: #7C6FFF;
+  justify-content: flex-end;
+}
+
+.toggle-knob {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.2);
+}
+
+/* ===== 版本号 ===== */
+.version-area {
+  display: flex;
+  justify-content: center;
+  padding: 40rpx;
+}
+
+.version-text { font-size: 22rpx; color: var(--version-color); }

@@ -1,0 +1,144 @@
+/* ===== TabBar 外壳 ===== */
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  padding-bottom: env(safe-area-inset-bottom);
+
+  /* Dark theme */
+  &.theme-dark {
+    background: #111120;
+    --icon-inactive: #55556e;
+    --icon-active:   #9B8CFF;
+    --label-active:  #9B8CFF;
+    --label-inactive:#55556e;
+    --divider:       rgba(255,255,255,0.07);
+  }
+
+  /* Light theme */
+  &.theme-light {
+    background: #ffffff;
+    --icon-inactive: #aaaacc;
+    --icon-active:   #6C5FFC;
+    --label-active:  #6C5FFC;
+    --label-inactive:#aaaacc;
+    --divider:       rgba(0,0,0,0.08);
+  }
+}
+
+.tabbar__divider {
+  height: 1rpx;
+  background: var(--divider, rgba(255,255,255,0.07));
+}
+
+.tabbar__inner {
+  display: flex;
+  flex-direction: row;
+  height: 110rpx;
+}
+
+/* 每个 Tab 条目 */
+.tabbar__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  padding: 14rpx 0 8rpx;
+}
+
+/* 图标容器 */
+.tabbar__icon {
+  width: 52rpx;
+  height: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 文字 */
+.tabbar__label {
+  font-size: 20rpx;
+  color: var(--label-inactive, #55556e);
+  font-weight: 500;
+}
+.tabbar__label--active {
+  color: var(--label-active, #9B8CFF);
+  font-weight: 700;
+}
+
+/* ===========================
+   CSS 绘制图标
+   =========================== */
+
+/* --- 柱状图（自选）--- */
+.icon-bars {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 6rpx;
+  height: 36rpx;
+}
+.bar {
+  border-radius: 3rpx;
+  width: 10rpx;
+}
+.bar-s { height: 18rpx; }
+.bar-m { height: 26rpx; }
+.bar-l { height: 36rpx; }
+
+/* --- 放大镜（搜索）--- */
+.icon-search {
+  position: relative;
+  width: 42rpx;
+  height: 42rpx;
+}
+.search-circle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 50%;
+  border-width: 4rpx;
+  border-style: solid;
+}
+.search-handle {
+  position: absolute;
+  bottom: 4rpx;
+  right: 2rpx;
+  width: 16rpx;
+  height: 4rpx;
+  border-radius: 2rpx;
+  transform: rotate(45deg);
+  transform-origin: right center;
+}
+
+/* --- 人形（我的）--- */
+.icon-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+  height: 40rpx;
+  justify-content: center;
+}
+.profile-head {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+  border-width: 4rpx;
+  border-style: solid;
+}
+.profile-body {
+  width: 34rpx;
+  height: 16rpx;
+  border-top-left-radius: 20rpx;
+  border-top-right-radius: 20rpx;
+  border-width: 4rpx;
+  border-style: solid;
+  border-bottom: none;
+}

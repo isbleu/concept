@@ -1,0 +1,125 @@
+page {
+  background-color: #f7f8fa;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Segoe UI, Arial, Roboto, 'PingFang SC', 'miui', 'Hiragino Sans GB', 'Microsoft Yahei', sans-serif;
+}
+
+.container {
+  padding: 40px 30px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f0f4fd 0%, #fdfaeb 100%);
+}
+
+.header {
+  margin-bottom: 40px;
+  
+  .greeting {
+    display: block;
+    font-size: 28px;
+    color: #666;
+    margin-bottom: 10px;
+  }
+  
+  .title {
+    display: block;
+    font-size: 48px;
+    font-weight: 700;
+    color: #333;
+    letter-spacing: 2px;
+  }
+}
+
+.concept-list {
+  display: flex;
+  flex-direction: column;
+  gap: 30px; /* Note: gap might not work perfectly in all scroll-views on older iOS, padding is safer if items wrap, but gap is fine for modern */
+}
+
+/* Glassmorphism Effect */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 32px;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.04);
+}
+
+.concept-card {
+  padding: 30px 35px;
+  margin-bottom: 30px;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  
+  &:active {
+    transform: scale(0.98);
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    
+    .concept-name {
+      font-size: 34px;
+      font-weight: bold;
+      color: #222;
+    }
+    
+    .hot-badge {
+      display: flex;
+      align-items: center;
+      background: rgba(255, 77, 79, 0.1);
+      padding: 6px 16px;
+      border-radius: 20px;
+      
+      .hot-icon {
+        font-size: 22px;
+        margin-right: 6px;
+      }
+      
+      .hot-value {
+        font-size: 24px;
+        color: #ff4d4f;
+        font-weight: 500;
+      }
+    }
+  }
+
+  .card-body {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 24px;
+    
+    .label {
+      font-size: 26px;
+      color: #888;
+      margin-right: 20px;
+    }
+    
+    .increase-value {
+      font-size: 56px;
+      font-weight: 800;
+      font-family: 'DIN Alternate', 'Helvetica Neue', Helvetica, sans-serif;
+    }
+    
+    .text-up {
+      color: #ff4d4f;
+    }
+    
+    .text-down {
+      color: #22c55e;
+    }
+  }
+
+  .card-footer {
+    border-top: 1px dashed rgba(0,0,0,0.08);
+    padding-top: 20px;
+    
+    .action-text {
+      font-size: 24px;
+      color: #a0a0a0;
+    }
+  }
+}

@@ -1,0 +1,24 @@
+/* ===== 全局设计系统 ===== */
+:root {
+  --color-bg: #0a0a14;
+  --color-surface: #13131f;
+  --color-surface-2: #1c1c2e;
+  --color-border: rgba(255,255,255,0.06);
+  --color-text-primary: #f0f0f8;
+  --color-text-secondary: #8888aa;
+  --color-accent: #7C6FFF;
+  --color-accent-glow: rgba(124,111,255,0.3);
+  --color-up: #FF5C5C;
+  --color-up-soft: rgba(255,92,92,0.12);
+  --color-down: #3DE88A;
+  --color-down-soft: rgba(61,232,138,0.12);
+  --radius-card: 24rpx;
+  --radius-pill: 100rpx;
+}
+
+page {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  min-height: 100vh;
+}

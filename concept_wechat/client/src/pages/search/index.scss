@@ -1,0 +1,295 @@
+/* ============================================
+   SEARCH PAGE — CSS Variable Theme System
+   ============================================ */
+.page.theme-dark {
+  --bg-page:        #0a0a14;
+  --bg-card:        #13131f;
+  --text-primary:   #f0f0f8;
+  --text-secondary: #8888aa;
+  --border:         rgba(255,255,255,0.06);
+  --tag-bg:         rgba(255,255,255,0.05);
+  --tag-border:     rgba(255,255,255,0.08);
+  --badge-up-bg:    rgba(255,92,92,0.12);
+  --badge-down-bg:  rgba(61,232,138,0.12);
+  --color-up:       #FF5C5C;
+  --color-down:     #3DE88A;
+  --accent:         #7C6FFF;
+  --accent-soft:    rgba(124,111,255,0.18);
+  --accent-text:    #9B8CFF;
+  --input-bg:       #13131f;
+  --input-border:   rgba(255,255,255,0.08);
+  --input-text:     #f0f0f8;
+  --placeholder:    #555577;
+  --dot-color:      #9B8CFF;
+  --idle-color:     #555577;
+  background: var(--bg-page);
+}
+
+.page.theme-light {
+  --bg-page:        #f0f3ff;
+  --bg-card:        #ffffff;
+  --text-primary:   #151525;
+  --text-secondary: #6b6b8a;
+  --border:         rgba(0,0,0,0.07);
+  --tag-bg:         rgba(108,95,252,0.06);
+  --tag-border:     rgba(108,95,252,0.12);
+  --badge-up-bg:    rgba(220,38,38,0.08);
+  --badge-down-bg:  rgba(34,134,58,0.08);
+  --color-up:       #dc2626;
+  --color-down:     #16a34a;
+  --accent:         #6C5FFC;
+  --accent-soft:    rgba(108,95,252,0.12);
+  --accent-text:    #6C5FFC;
+  --input-bg:       #ffffff;
+  --input-border:   rgba(108,95,252,0.15);
+  --input-text:     #151525;
+  --placeholder:    #aaaacc;
+  --dot-color:      #6C5FFC;
+  --idle-color:     #aaaacc;
+  background: var(--bg-page);
+}
+
+page { background: #0a0a14; overflow-x: hidden; }
+
+.page {
+  min-height: 100vh;
+  padding: 0 28rpx;
+  padding-bottom: 160rpx;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* Header */
+.search-header {
+  padding: 48rpx 12rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.search-title {
+  font-size: 44rpx;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.search-subtitle {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+
+/* 搜索框 */
+.search-box-wrap {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 32rpx;
+}
+
+.search-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: var(--input-bg);
+  border: 1rpx solid var(--input-border);
+  border-radius: 20rpx;
+  padding: 0 24rpx;
+  height: 96rpx;
+  gap: 16rpx;
+}
+
+.search-icon { font-size: 32rpx; }
+
+.search-input {
+  flex: 1;
+  font-size: 28rpx;
+  color: var(--input-text);
+  height: 96rpx;
+  line-height: 96rpx;
+}
+
+.input-placeholder { color: var(--placeholder); }
+
+.search-btn {
+  background: linear-gradient(135deg, #7C6FFF, #9B8CFF);
+  border-radius: 20rpx;
+  height: 96rpx;
+  padding: 0 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  &.loading { opacity: 0.6; }
+}
+
+.search-btn-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* AI 思考动画 */
+.thinking-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 0;
+  gap: 32rpx;
+}
+
+.thinking-dots {
+  display: flex;
+  gap: 16rpx;
+  align-items: center;
+}
+
+.dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background: var(--dot-color);
+}
+
+.dot1 { animation: bounce 1.2s ease-in-out 0s infinite; }
+.dot2 { animation: bounce 1.2s ease-in-out 0.2s infinite; }
+.dot3 { animation: bounce 1.2s ease-in-out 0.4s infinite; }
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0.8); opacity: 0.4; }
+  40% { transform: scale(1.2); opacity: 1; }
+}
+
+.thinking-text {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+
+/* 搜索结果 */
+.results-area { display: flex; flex-direction: column; gap: 24rpx; }
+
+.results-label {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  padding: 0 4rpx 8rpx;
+}
+
+.result-card {
+  background: var(--bg-card);
+  border-radius: 24rpx;
+  overflow: hidden;
+  border: 1rpx solid var(--border);
+}
+
+.card-accent-top { height: 4rpx; width: 100%; }
+
+.result-inner {
+  padding: 28rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.result-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.result-name {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.change-badge {
+  padding: 8rpx 20rpx;
+  border-radius: 100rpx;
+  &.up { background: var(--badge-up-bg); }
+  &.down { background: var(--badge-down-bg); }
+}
+
+.change-text {
+  font-size: 28rpx;
+  font-weight: 700;
+  .up & { color: var(--color-up); }
+  .down & { color: var(--color-down); }
+}
+
+.result-desc { font-size: 24rpx; color: var(--text-secondary); line-height: 1.6; }
+
+.result-stocks { display: flex; flex-wrap: wrap; gap: 12rpx; }
+
+.stock-tag {
+  background: var(--tag-bg);
+  border: 1rpx solid var(--tag-border);
+  border-radius: 8rpx;
+  padding: 6rpx 14rpx;
+}
+
+.stock-name { font-size: 22rpx; color: var(--text-secondary); }
+
+.add-btn-wrap { display: flex; justify-content: flex-end; }
+
+.add-btn {
+  background: linear-gradient(135deg, #7C6FFF, #9B8CFF);
+  border-radius: 16rpx;
+  padding: 14rpx 32rpx;
+  transition: all 0.25s;
+  
+  &.added {
+    background: transparent;
+    border: 1rpx solid var(--tag-border);
+  }
+}
+
+.add-btn-text { 
+  font-size: 26rpx; 
+  font-weight: 600; 
+  color: #fff; 
+  transition: color 0.25s;
+
+  .add-btn.added & {
+    color: var(--text-muted);
+  }
+}
+
+/* 空态 */
+.idle-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 120rpx 0;
+  gap: 24rpx;
+}
+
+.idle-icon { font-size: 80rpx; }
+
+.idle-text {
+  font-size: 28rpx;
+  color: var(--idle-color);
+  text-align: center;
+  line-height: 1.8;
+}
+
+.credit-hint {
+  margin-top: 16rpx;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 22rpx;
+  padding: 12rpx 28rpx;
+  border-radius: 12rpx;
+}
+
+.credit-toast {
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--accent-text);
+  animation: fadeIn 0.4s ease forwards;
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; transform: translateY(-8rpx); }
+  100% { opacity: 1; transform: translateY(0); }
+}

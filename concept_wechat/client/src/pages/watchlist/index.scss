@@ -1,0 +1,261 @@
+/* ============================================
+   WATCHLIST PAGE — CSS Variable Theme System
+   ============================================ */
+
+/* ---- Dark Theme ---- */
+.page.theme-dark {
+  --bg-page:        #0a0a14;
+  --bg-card:        #13131f;
+  --bg-card-active: #1c1c2e;
+  --text-primary:   #f0f0f8;
+  --text-secondary: #8888aa;
+  --text-muted:     #555577;
+  --border:         rgba(255,255,255,0.06);
+  --tag-bg:         rgba(255,255,255,0.05);
+  --tag-border:     rgba(255,255,255,0.08);
+  --bar-track:      rgba(255,255,255,0.06);
+  --badge-up-bg:    rgba(255,92,92,0.12);
+  --badge-down-bg:  rgba(61,232,138,0.12);
+  --color-up:       #FF5C5C;
+  --color-down:     #3DE88A;
+  --accent:         #7C6FFF;
+  --accent-soft:    rgba(124,111,255,0.12);
+  --accent-text:    #9B8CFF;
+  --live-dot:       #3DE88A;
+  --arrow:          #444466;
+
+  background: var(--bg-page);
+}
+
+/* ---- Light Theme ---- */
+.page.theme-light {
+  --bg-page:        #f0f3ff;
+  --bg-card:        #ffffff;
+  --bg-card-active: #f5f5ff;
+  --text-primary:   #151525;
+  --text-secondary: #6b6b8a;
+  --text-muted:     #aaaacc;
+  --border:         rgba(0,0,0,0.07);
+  --tag-bg:         rgba(108,95,252,0.06);
+  --tag-border:     rgba(108,95,252,0.12);
+  --bar-track:      rgba(0,0,0,0.07);
+  --badge-up-bg:    rgba(220,38,38,0.08);
+  --badge-down-bg:  rgba(34,134,58,0.08);
+  --color-up:       #dc2626;
+  --color-down:     #16a34a;
+  --accent:         #6C5FFC;
+  --accent-soft:    rgba(108,95,252,0.1);
+  --accent-text:    #6C5FFC;
+  --live-dot:       #16a34a;
+  --arrow:          #ccccdd;
+
+  background: var(--bg-page);
+}
+
+/* ---- Base Styles ---- */
+page {
+  background: #0a0a14;
+  font-family: -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  overflow-x: hidden;
+}
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* ===== 顶部标题区 ===== */
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 48rpx 40rpx 32rpx;
+}
+
+.top-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.top-label {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 1rpx;
+}
+
+.top-count {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.top-date {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  background: var(--accent-soft);
+  padding: 10rpx 20rpx;
+  border-radius: 100rpx;
+}
+
+.dot-live {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background: var(--live-dot);
+  box-shadow: 0 0 8rpx var(--live-dot);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.live-text {
+  font-size: 22rpx;
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+/* ===== 滚动区域 ===== */
+.scroll-area {
+  flex: 1;
+  padding: 0 28rpx;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* ===== 题材卡片 ===== */
+.concept-card {
+  display: flex;
+  flex-direction: row;
+  background: var(--bg-card);
+  border-radius: 24rpx;
+  margin-bottom: 24rpx;
+  overflow: hidden;
+  border: 1rpx solid var(--border);
+  box-sizing: border-box;
+  width: 100%;
+
+  &.pressed {
+    background: var(--bg-card-active);
+    transform: scale(0.985);
+  }
+}
+
+.color-bar {
+  width: 8rpx;
+  flex-shrink: 0;
+}
+
+.card-inner {
+  flex: 1;
+  padding: 28rpx 28rpx 24rpx 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+/* ===== 顶部行 ===== */
+.row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.concept-name {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.change-badge {
+  padding: 8rpx 20rpx;
+  border-radius: 100rpx;
+  &.up { background: var(--badge-up-bg); }
+  &.down { background: var(--badge-down-bg); }
+}
+
+.change-text {
+  font-size: 28rpx;
+  font-weight: 700;
+  font-family: 'DIN Alternate', 'Helvetica Neue', sans-serif;
+  .up & { color: var(--color-up); }
+  .down & { color: var(--color-down); }
+}
+
+/* ===== 描述 ===== */
+.concept-desc {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* ===== 成分股标签 ===== */
+.stock-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.stock-tag {
+  background: var(--tag-bg);
+  border: 1rpx solid var(--tag-border);
+  border-radius: 8rpx;
+  padding: 6rpx 14rpx;
+}
+
+.stock-name {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+
+/* ===== 热度行 ===== */
+.row-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4rpx;
+}
+
+.hot-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  flex: 1;
+}
+
+.hot-bar-track {
+  flex: 1;
+  height: 6rpx;
+  background: var(--bar-track);
+  border-radius: 100rpx;
+  overflow: hidden;
+}
+
+.hot-bar-fill {
+  height: 100%;
+  background: linear-gradient(to right, #7C6FFF, #FF6B9D);
+  border-radius: 100rpx;
+}
+
+.hot-label {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.arrow-text {
+  font-size: 36rpx;
+  color: var(--arrow);
+  margin-left: 16rpx;
+}
+
+.bottom-spacer {
+  height: 160rpx;
+}
