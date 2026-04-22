@@ -8,55 +8,32 @@ const dbPath = path.join(__dirname, '../data/quotes.db');
 class MarketEmitter extends EventEmitter {}
 const marketEmitter = new MarketEmitter();
 
-// 初始化数据库连接
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) console.error('SQLite connection error:', err);
-  else {
-    console.log('✅ SQLite 行情数据库已就绪 (WAL 模式)');
-    db.run('PRAGMA journal_mode = WAL'); // 开启 WAL 模式，允许并发读写
-    db.configure('busyTimeout', 5000);   // 设置繁忙重试时间
-  }
-});
+// 获取统一数据库连接 (共享 db.js 的配置，包括 WAL 和 30s 超时)
+const { conceptDb, warehouseDb } = require('../db');
+const db = conceptDb.raw;
 
-// 初始化表结构
+// [V14.1] 由 db.js 统一管理初始化，此处保留钩子备用
 const initDb = () => {
-  db.serialize(() => {
-    // 初始化持久化高频行情表（不再每次启动时清空）
-    db.run(`CREATE TABLE IF NOT EXISTS stock_quotes (
-      code TEXT PRIMARY KEY,
-      name TEXT,
-      price REAL,
-      open REAL,
-      pre_close REAL,
-      high REAL,
-      low REAL,
-      pct_change REAL,
-      volume REAL,
-      amount REAL,
-      year TEXT,
-      avg_profit REAL,
-      last_updated DATETIME
-    )`);
-    
-    // 创建低频量化打分表 (RPG 五维等)
-    db.run(`CREATE TABLE IF NOT EXISTS rpg_attributes (
-      code TEXT PRIMARY KEY,
-      target_pos INTEGER,
-      net_main REAL,
-      main_ratio REAL,
-      pe_ttm REAL,
-      dv_ttm REAL,
-      up_limit_days INTEGER,
-      turnover_mean REAL,
-      profit_growth REAL,
-      VIT INTEGER,
-      STR INTEGER,
-      MP INTEGER,
-      AGI INTEGER,
-      INT_score INTEGER,
-      last_rpg_updated DATETIME
-    )`);
-  });
+    // 基础表由 db.js 创建，此处仅确保 rpg_attributes 等扩展表存在
+    db.serialize(() => {
+        db.run(`CREATE TABLE IF NOT EXISTS rpg_attributes (
+          code TEXT PRIMARY KEY,
+          target_pos INTEGER,
+          net_main REAL,
+          main_ratio REAL,
+          pe_ttm REAL,
+          dv_ttm REAL,
+          up_limit_days INTEGER,
+          turnover_mean REAL,
+          profit_growth REAL,
+          VIT INTEGER,
+          STR INTEGER,
+          MP INTEGER,
+          AGI INTEGER,
+          INT_score INTEGER,
+          last_rpg_updated DATETIME
+        )`);
+    });
 };
 
 initDb();
@@ -213,7 +190,7 @@ const handleWorkerUpdate = (payload) => {
     if (isMinuteCandle) {
       console.log(`💾 [MarketData] 正在持久化分钟分时快照 (${tradeDate} ${tradeTime})...`);
       const stmtIntra = db.prepare(`INSERT OR REPLACE INTO stock_intraday 
-        (code, price, vol, amount, trade_date, trade_time) 
+        (code, price, volume, amount, trade_date, trade_time) 
         VALUES (?, ?, ?, ?, ?, ?)`);
       
       data.forEach(item => {
@@ -221,6 +198,49 @@ const handleWorkerUpdate = (payload) => {
       });
       stmtIntra.finalize();
     }
+  });
+};
+
+/**
+ * 接收 Python Backfill 推送的历史批量分时数据
+ * [V14.2] 升级为 Promise 架构，确保数据写回磁盘
+ */
+const handleBackfillUpdate = async (data) => {
+  if (!data || !Array.isArray(data)) return 0;
+
+  const dbPath = path.resolve(__dirname, '../data/quotes.db');
+  console.log(`[DB_WRITE] Target path: ${dbPath} | Connection state: ${db ? 'ACTIVE' : 'NULL'}`);
+
+  return new Promise((resolve, reject) => {
+    db.serialize(() => {
+      db.run('BEGIN TRANSACTION', (err) => {
+          if (err) console.error('[DB_ERR] BEGIN failed:', err);
+      });
+
+      const stmt = db.prepare(`INSERT OR REPLACE INTO stock_intraday 
+        (code, price, volume, amount, trade_date, trade_time) 
+        VALUES (?, ?, ?, ?, ?, ?)`);
+
+      data.forEach((r, idx) => {
+        const volume = r.volume !== undefined ? r.volume : (r.vol || 0);
+        stmt.run(r.code, r.price, volume, r.amount, r.trade_date, r.trade_time, (err) => {
+            if (err && idx < 5) console.error(`[DB_ERR] Row ${idx} failed:`, err);
+        });
+      });
+
+      stmt.finalize();
+
+      db.run('COMMIT', (err) => {
+        if (err) {
+          console.error('❌ [Backfill] COMMIT ERROR:', err.message);
+          db.run('ROLLBACK');
+          reject(err);
+        } else {
+          console.log(`✅ [Backfill] Transaction Finalized: ${data.length} rows`);
+          resolve(data.length);
+        }
+      });
+    });
   });
 };
 
@@ -244,13 +264,7 @@ const syncFromSource = (codes) => {
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
     });
 
-    let stdout = '';
-    let stderr = '';
-
-    pythonProcess.stdout.on('data', (data) => stdout += data.toString());
-    pythonProcess.stderr.on('data', (data) => stderr += data.toString());
-
-    // 增加超时控制：防止同步任务挂掉导致阻塞
+    // 增加超时控制
     const timeout = setTimeout(() => {
       pythonProcess.kill();
       reject('Market Sync Timeout after 60s');
@@ -259,40 +273,40 @@ const syncFromSource = (codes) => {
     pythonProcess.on('close', (code) => {
       clearTimeout(timeout);
       if (code !== 0) {
-        console.error('Market Sync Error:', stderr);
-        return reject(stderr);
+        return reject(new Error('Market Sync process error'));
       }
-      try {
-        const result = JSON.parse(stdout);
-        // 处理非交易时间的正常跳过
-        if (result.info) {
-           console.log(`⏸️ ${result.info}`);
-           return resolve([]);
-        }
-        if (result.error) return reject(result.error);
-        if (!Array.isArray(result)) return reject('Invalid JSON format');
-        
-        // 批量更新到 SQLite
-        const stmt = db.prepare(`REPLACE INTO stock_quotes 
-          (code, name, price, open, pre_close, high, low, pct_change, volume, amount, year, avg_profit, last_updated) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-        
-        db.serialize(() => {
-          result.forEach(item => {
-            stmt.run(
-              item.code, item.name, item.price, item.open, item.pre_close, item.high, item.low, 
-              item.pct_change, item.volume, item.amount, item.year, item.avg_profit, item.last_updated
-            );
-          });
-          stmt.finalize();
-        });
-        
-        console.log(`📡 同步完成: ${result.length} 只股票已更新`);
-        // 触发 SSE 推送事件
-        marketEmitter.emit('market_update', result);
-        resolve(result);
-      } catch (e) {
-        reject('Failed to parse sync output: ' + stdout);
+      // [V13.0] 数据由 Python 脚本主动推送到 /market-update，这里仅负责生命周期闭环
+      console.log(`📡 [Sync] 同步脚本执行完毕 (已触发异步自愈回溯)`);
+      
+      // 异步触发自愈回溯
+      runIntradayBackfill(codes)
+        .catch(err => console.error('🩹 [Backfill] 失败:', err.message));
+
+      resolve();
+    });
+  });
+};
+
+/**
+ * 核心日内回溯：补全今日历史分钟线
+ */
+const runIntradayBackfill = async (codes) => {
+  if (!codes || codes.length === 0) return;
+  console.log(`🩹 [Backfill] 正在为 ${codes.length} 只股票回溯补全今日分时数据...`);
+
+  return new Promise((resolve, reject) => {
+    const py = spawn('python', [
+      path.join(__dirname, 'market_backfill.py'),
+      codes.join(',')
+    ], { env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
+
+    // [V13.0] 协议升级：数据通过 HTTP 推送，此处不再监听 stdout
+    py.on('close', (code) => {
+      if (code === 0) {
+        console.log(`✅ [Backfill] 生命周期管理: 回补进程正常退出`);
+        resolve();
+      } else {
+        reject(new Error(`Backfill process exited with code ${code}`));
       }
     });
   });
@@ -433,190 +447,218 @@ const getQuotes = (codes) => {
 };
 
 /**
- * [V7] 指数合成引擎：获取今日分钟级分时图
- * 采用“基点法”：1. 相对价格系数 2. 加权 3. 1000基准
+ * 获取概念指数的日内分时数据 (V8 升级版)
+ * 采用“实时复权对准法”，计算 Σ(Weight * Price / PreClose) / ΣWeight
  */
 const getConceptIntraday = async (conceptId) => {
-  console.log(`🔍 [Synthesizer] 正在合成今日分时: ${conceptId}`);
-  
-  // 1. 获取成分股池及其权重
-  // 直接利用本文件内置的 db (quotes.db) 查询
-  const stocks = await new Promise((resolve, reject) => {
-    db.all(`
-      SELECT cs.code, sm.weight_factor as weight, q.pre_close
-      FROM concept_stocks cs
-      JOIN stocks_meta sm ON cs.code = sm.code
-      LEFT JOIN stock_quotes q ON cs.code = q.code
-      WHERE cs.concept_id = ?
-    `, [conceptId], (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows || []);
-    });
-  });
+  return new Promise((resolve, reject) => {
+    console.log(`[I-Trace] >>> 开始合成题材分时: ${conceptId}`);
+    
+    // 1. 查找成分股及其权重
+    const query = `
+      WITH BasicInfo AS (
+        SELECT cs.code as stock_code, sm.weight_factor, sq.pre_close
+        FROM concept_stocks cs
+        JOIN stocks_meta sm ON cs.code = sm.code
+        JOIN stock_quotes sq ON cs.code = sq.code
+        WHERE cs.concept_id = ?
+      )
+      SELECT 
+        si.trade_time as time,
+        1000 * SUM((si.price / bi.pre_close) * bi.weight_factor) / SUM(bi.weight_factor) as value,
+        SUM(si.volume) as volume,
+        SUM(si.amount) as amount
+      FROM stock_intraday si
+      JOIN BasicInfo bi ON si.code = bi.stock_code
+      WHERE si.trade_date = (SELECT MAX(trade_date) FROM stock_intraday)
+      GROUP BY si.trade_time
+      ORDER BY si.trade_time ASC
+    `;
 
-  console.log(`🔍 [Synthesizer] 查得 ${stocks.length} 只成分股`);
-  if (stocks.length === 0) return [];
-
-  // 获取今日分时数据
-  const today = new Date().toISOString().split('T')[0];
-  const codes = stocks.map(s => s.code);
-  const placeholders = codes.map(() => '?').join(',');
-  
-  const rawData = await new Promise((resolve, reject) => {
-    db.all(`
-      SELECT code, price, trade_time 
-      FROM stock_intraday 
-      WHERE trade_date = ? AND code IN (${placeholders})
-      ORDER BY trade_time ASC
-    `, [today, ...codes], (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
-    });
-  });
-
-  console.log(`🔍 [Synthesizer] 查得 ${rawData.length} 条分钟行情记录`);
-  if (rawData.length === 0) {
-    return [{ time: "0930", value: 1000 }];
-  }
-
-  // 2. 按时间点分组聚合
-  const timeMap = {};
-  rawData.forEach(row => {
-    if (!timeMap[row.trade_time]) timeMap[row.trade_time] = [];
-    timeMap[row.trade_time].push(row);
-  });
-
-  // 权重字典
-  const weightMap = {};
-  const preCloseMap = {};
-  stocks.forEach(s => {
-    weightMap[s.code] = s.weight || 1.0;
-    preCloseMap[s.code] = s.pre_close || 0;
-  });
-
-  // 3. 计算指数
-  const result = Object.keys(timeMap).sort().map(time => {
-    const points = timeMap[time];
-    let sumWeight = 0;
-    let weightedFactor = 0;
-
-    points.forEach(p => {
-      const w = weightMap[p.code];
-      const pc = preCloseMap[p.code];
-      if (pc > 0 && p.price > 0) {
-        sumWeight += w;
-        weightedFactor += (p.price / pc) * w;
+    db.all(query, [conceptId], (err, rows) => {
+      if (err) {
+        console.error(`[I-Trace] 合成分时 SQL 失败: ${err.message}`);
+        return reject(err);
       }
+      
+      console.log(`[I-Trace] 分时原始数据返回: ${rows?.length || 0} 行`);
+      
+      if (!rows || rows.length === 0) {
+        // 进一步查查 BasicInfo 是否有东西
+        db.all(`SELECT cs.code FROM concept_stocks cs WHERE cs.concept_id = ?`, [conceptId], (err2, csRows) => {
+           console.log(`[I-Trace] 题材成分股核查: ${csRows?.length || 0} 只`);
+           resolve([]);
+        });
+        return;
+      }
+
+      const formatted = rows.map(r => ({
+        time: r.time,
+        value: parseFloat(r.value.toFixed(2)),
+        amount: Math.round(r.amount),
+        pct_chg: parseFloat(((r.value / 1000 - 1) * 100).toFixed(2))
+      }));
+      
+      console.log(`[I-Trace] <<< 题材分时吐出: ${formatted.length} 点`);
+      resolve(formatted);
     });
-
-    const indexValue = sumWeight > 0 ? (weightedFactor / sumWeight) * 1000 : 1000;
-    return { time, value: parseFloat(indexValue.toFixed(2)) };
   });
-
-  return result;
 };
 
-/**
- * [V7] 指数合成引擎：回溯合成 60 日历史 K 线
- * 从 warehouse.db 抓取历史。
- */
 const getConceptDailyKLine = async (conceptId) => {
-  console.log(`🔍 [Synthesizer] 正在回溯 60 日 K 线: ${conceptId}`);
-  
-  // 1. 基本元数据 (直接利用本地 db)
-  const stocks = await new Promise((resolve, reject) => {
-    db.all(`
-      SELECT cs.code, sm.weight_factor as weight
-      FROM concept_stocks cs
-      JOIN stocks_meta sm ON cs.code = sm.code
-      WHERE cs.concept_id = ?
-    `, [conceptId], (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows || []);
-    });
-  });
-
-  console.log(`🔍 [Synthesizer] 历史回溯涉及 ${stocks.length} 只股票`);
-  if (stocks.length === 0) return [];
-
-  const codes = stocks.map(s => s.code);
-  const weightMap = {};
-  stocks.forEach(s => { weightMap[s.code] = s.weight || 1.0; });
-
-  // 2. 访问仓库 (历史库)
-  const whPath = path.join(__dirname, 'warehouse.db');
-  console.log(`🔍 [Synthesizer] 正在链接仓库: ${whPath}`);
-  const whDb = new sqlite3.Database(whPath, sqlite3.OPEN_READONLY);
-
-  return new Promise((resolve, reject) => {
-    const placeholders = codes.map(() => '?').join(',');
-    // 获取最近 60 个交易日的所有成分股收盘价
-    whDb.all(`
-      SELECT trade_date, ts_code as code, close 
-      FROM historical_daily 
-      WHERE ts_code IN (${placeholders})
-      ORDER BY trade_date DESC LIMIT ?
-    `, [...codes, codes.length * 60], (err, rows) => {
-      whDb.close();
-      if (err) return reject(err);
-
-      if (rows.length === 0) return resolve([]);
-
-      // 3. 聚合
-      const dateMap = {};
-      rows.forEach(r => {
-        if (!dateMap[r.trade_date]) dateMap[r.trade_date] = [];
-        dateMap[r.trade_date].push(r);
-      });
-
-      const dates = Object.keys(dateMap).sort();
-      const finalK = [];
-
-      // 回溯计算时，我们以“最后一天”为基准 1000 (反向推算比较复杂，此处正向加权更直观)
-      // 但为了满足用户“反推”需求，我们需要建立连续的涨跌链条。
-      
-      // 简单实现：每日算出加权涨幅，然后从 1000 开始累乘。
-      // 但其实直接对每日的 (Close/BaseClose) 加权是最稳的。
-      // 我们假设“回溯第一天（60天前）”为基点。
-      
-      dates.forEach((date, idx) => {
-        const points = dateMap[date];
-        let sumWeight = 0;
-        let weightedPrice = 0;
-        let sumPreWeight = 0;
-        let weightedPrePrice = 0;
-
-        // 注意：historical_daily 通常不直接存 pre_close，需要通过位移获得，
-        // 或者简单地：Index(d) / Index(d-1) = Σ(Weight * (Price(d)/Price(d-1)))
-        // 实际上：最健壮的是 Index(d) = Base * Σ(Weight * Price_i_d / Price_i_base)
-        
-        // 简化方案：为了展示趋势，我们直接对收盘价进行加权标准化
-        // 算出在该题材下，当日的加权价格因子。
-        let numerator = 0;
-        let denominator = 0;
-        points.forEach(p => {
-          const w = weightMap[p.code];
-          numerator += p.close * w;
-          denominator += w; 
-        });
-
-        finalK.push({
-          date: date,
-          value: parseFloat((numerator / denominator).toFixed(2)) // 这只是绝对值，前端需自行处理百分比或我们进行二次归一
-        });
-      });
-
-      // 归一化处理：让最后一天（昨天）等于 1000
-      if (finalK.length > 0) {
-        const lastVal = finalK[finalK.length - 1].value;
-        const normalized = finalK.map(k => ({
-          date: k.date,
-          value: parseFloat(((k.value / lastVal) * 1000).toFixed(2))
-        }));
-        resolve(normalized);
-      } else {
-        resolve([]);
+  return new Promise((resolve) => {
+    console.log(`[K-Trace] >>> 开始合成题材 K 线: ${conceptId}`);
+    
+    db.all(`SELECT sm.code, sm.weight_factor, sm.adj_factor FROM stocks_meta sm JOIN concept_stocks cs ON sm.code = cs.code WHERE cs.concept_id = ?`, [conceptId], async (err, stocks) => {
+      if (err) {
+        console.error(`[K-Trace] 获取成分股失败: ${err.message}`);
+        return resolve([]);
       }
+      if (!stocks || stocks.length === 0) {
+        console.warn(`[K-Trace] 未找到题材 ${conceptId} 的成分股`);
+        return resolve([]);
+      }
+
+      const codeArr = stocks.map(s => s.code);
+      const codes = codeArr.map(c => `'${c}'`).join(',');
+      const weightMap = {};
+      const metaAdjMap = {}; 
+      stocks.forEach(s => {
+        weightMap[s.code] = s.weight_factor || 1.0;
+        metaAdjMap[s.code] = s.adj_factor || 1.0;
+      });
+
+      console.log(`[K-Trace] 成分股加载完毕: ${stocks.length} 只`);
+
+      // 使用共享的 warehouseDb 连接，避免 ad-hoc 连接导致的 busy 错误
+      const query = `
+        SELECT trade_date, ts_code as code, open, high, low, close, amount, adj_factor
+        FROM historical_daily
+        WHERE ts_code IN (${codes})
+        AND trade_date IN (
+          SELECT DISTINCT trade_date FROM historical_daily 
+          ORDER BY trade_date DESC LIMIT 61
+        )
+        ORDER BY trade_date ASC
+      `;
+
+      warehouseDb.all(query, [], async (err, historyRows) => {
+        if (err) {
+          console.error(`[K-Trace] 查询 historical_daily 失败: ${err.message}`);
+          return resolve([]);
+        }
+
+        console.log(`[K-Trace] 仓储数据返回: ${historyRows?.length || 0} 行`);
+        if (!historyRows || historyRows.length === 0) return resolve([]);
+
+        const dateGroups = {};
+        historyRows.forEach(r => {
+          if (!dateGroups[r.trade_date]) dateGroups[r.trade_date] = [];
+          dateGroups[r.trade_date].push(r);
+        });
+
+        const sortedDates = Object.keys(dateGroups).sort();
+        console.log(`[K-Trace] 历史日期范围: ${sortedDates[0]} ~ ${sortedDates[sortedDates.length-1]} (共 ${sortedDates.length} 天)`);
+        
+        if (sortedDates.length < 2) {
+          console.warn(`[K-Trace] 历史数据不足 2 天，无法锚定基准`);
+          return resolve([]);
+        }
+
+        const refPoints = {};
+        dateGroups[sortedDates[0]].forEach(r => {
+          refPoints[r.code] = r.close * r.adj_factor;
+        });
+
+        const finalK = [];
+        // 1. 合成历史部分 (D-60 到 D-1)
+        for (let i = 1; i < sortedDates.length; i++) {
+          const date = sortedDates[i];
+          const pts = dateGroups[date];
+          let totalW = 0, sO = 0, sH = 0, sL = 0, sC = 0, sAmount = 0;
+          
+          pts.forEach(p => {
+            const w = weightMap[p.code];
+            const base = refPoints[p.code];
+            if (!base) return;
+            totalW += w;
+            sO += (p.open * p.adj_factor / base) * w;
+            sH += (p.high * p.adj_factor / base) * w;
+            sL += (p.low * p.adj_factor / base) * w;
+            sC += (p.close * p.adj_factor / base) * w;
+            sAmount += p.amount;
+          });
+
+          if (totalW > 0) {
+            finalK.push({
+              date,
+              open: parseFloat((sO / totalW * 1000).toFixed(2)),
+              high: parseFloat((sH / totalW * 1000).toFixed(2)),
+              low: parseFloat((sL / totalW * 1000).toFixed(2)),
+              close: parseFloat((sC / totalW * 1000).toFixed(2)),
+              amount: Math.round(sAmount * 1000)
+            });
+          }
+        }
+
+        console.log(`[K-Trace] 历史 K 线合成完毕: ${finalK.length} 根`);
+
+        // 2. 实时缝合
+        const lastHistoryDate = sortedDates[sortedDates.length - 1];
+        const todayStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+        
+        if (lastHistoryDate < todayStr) {
+          console.log(`[K-Trace] 尝试缝合今日实时数据 (${todayStr})`);
+          try {
+            const realQuotes = await new Promise((res) => {
+              db.all(`SELECT code, open, high, low, price, amount FROM stock_quotes WHERE code IN (${codes})`, (err, r) => res(r || []));
+            });
+
+            console.log(`[K-Trace] 实时行情返回: ${realQuotes.length} 只`);
+            if (realQuotes.length > 0) {
+              let totalW = 0, sO = 0, sH = 0, sL = 0, sC = 0, sAmount = 0;
+              realQuotes.forEach(q => {
+                const w = weightMap[q.code];
+                const base = refPoints[q.code];
+                const adj = metaAdjMap[q.code]; 
+                if (!base || q.open <= 0) return;
+                
+                totalW += w;
+                sO += (q.open * adj / base) * w;
+                sH += (q.high * adj / base) * w;
+                sL += (q.low * adj / base) * w;
+                sC += (q.price * adj / base) * w;
+                sAmount += q.amount;
+              });
+
+              if (totalW > 0) {
+                finalK.push({
+                  date: todayStr,
+                  open: parseFloat((sO / totalW * 1000).toFixed(2)),
+                  high: parseFloat((sH / totalW * 1000).toFixed(2)),
+                  low: parseFloat((sL / totalW * 1000).toFixed(2)),
+                  close: parseFloat((sC / totalW * 1000).toFixed(2)),
+                  amount: Math.round(sAmount),
+                  isRealtime: true 
+                });
+                console.log(`[K-Trace] 今日实时柱缝合成功`);
+              } else {
+                console.warn(`[K-Trace] 今日实时数据有效权重为 0`);
+              }
+            }
+          } catch (e) {
+            console.error('[K-Trace] 今日实时柱缝合失败:', e);
+          }
+        }
+
+        // 3. 计算收益率
+        for (let i = 0; i < finalK.length; i++) {
+          const prevClose = (i === 0) ? 1000 : finalK[i - 1].close;
+          finalK[i].pct_chg = parseFloat(((finalK[i].close / prevClose - 1) * 100).toFixed(2));
+        }
+        console.log(`[K-Trace] <<< 题材 K 线吐出: ${finalK.length} 点`);
+        resolve(finalK);
+      });
     });
   });
 };
@@ -820,4 +862,5 @@ module.exports = {
   getConceptIntraday,
   getConceptDailyKLine,
   cleanupIntradayData,
+  handleBackfillUpdate,
 };

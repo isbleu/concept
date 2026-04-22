@@ -11,10 +11,17 @@ if (!fs.existsSync(dataDir)) {
 
 // ======== SQLite 统一数据库 ========
 const quotesDbPath = path.join(dataDir, 'quotes.db');
+const warehouseDbPath = path.join(__dirname, 'services', 'warehouse.db');
+
 const sqliteDb = new sqlite3.Database(quotesDbPath);
 sqliteDb.run('PRAGMA journal_mode = WAL');
 sqliteDb.run('PRAGMA foreign_keys = ON');
-sqliteDb.configure('busyTimeout', 5000);
+sqliteDb.configure('busyTimeout', 30000); // 增加锁等待容忍时间
+
+// V14.4: 统一历史仓库数据库连接
+const warehouseDb = new sqlite3.Database(warehouseDbPath);
+warehouseDb.run('PRAGMA journal_mode = WAL');
+warehouseDb.configure('busyTimeout', 30000);
 
 // ======== 建表 ========
 sqliteDb.serialize(() => {
@@ -103,13 +110,19 @@ sqliteDb.serialize(() => {
   sqliteDb.run(`CREATE TABLE IF NOT EXISTS stock_intraday (
     code TEXT NOT NULL,
     price REAL,
-    vol REAL,
+    volume REAL,
     amount REAL,
     trade_date TEXT NOT NULL,
     trade_time TEXT NOT NULL,
     PRIMARY KEY (code, trade_date, trade_time)
   )`);
   sqliteDb.run(`CREATE INDEX IF NOT EXISTS idx_intra_search ON stock_intraday(trade_date, code)`);
+
+  // ---------- V13: 全链路语义对齐迁移 ----------
+  // 如果 legacy 表存在 vol 字段，则重命名为 volume
+  sqliteDb.run("ALTER TABLE stock_intraday RENAME COLUMN vol TO volume", (err) => {
+    if (!err) console.log('📁 [Migration] stock_intraday.vol -> volume 重命名成功');
+  });
 
 });
 
@@ -232,7 +245,7 @@ const conceptDb = {
 };
 
 // ======== 兼容层：导出格式保持与旧 db 一致 ========
-const db = { conceptDb };
+const db = { conceptDb, warehouseDb };
 
 console.log('✅ SQLite 统一数据库已就绪 (ALL-IN-ONE: users + concepts + stocks_meta)');
 

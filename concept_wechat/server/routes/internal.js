@@ -27,10 +27,32 @@ router.post('/market-update', (req, res) => {
   try {
     const payload = req.body;
     marketData.handleWorkerUpdate(payload);
-    // 兼容原有的 count 返回，取 data 数组长度
     const count = (payload && payload.data) ? payload.data.length : 0;
     res.json({ success: true, count });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Python Backfill 脚本采集完历史分时后 POST 到此接口
+ */
+router.post('/market-backfill', async (req, res) => {
+  try {
+    const { data } = req.body; 
+    console.log(`[API_IN] Received path /market-backfill | Data count: ${data ? data.length : 'NULL'} | Type: ${typeof data}`);
+    
+    if (!data || !Array.isArray(data)) {
+      console.error('[API_ERR] Data is not an array or missing');
+      return res.status(400).json({ error: 'Invalid data format' });
+    }
+    
+    // 调用处理逻辑并捕获返回值（异步等待落库完成）
+    const result = await marketData.handleBackfillUpdate(data);
+    
+    res.json({ success: true, count: data.length, processed: result });
+  } catch (err) {
+    console.error(`[API_EXCEPTION] ${err.stack}`);
     res.status(500).json({ error: err.message });
   }
 });
